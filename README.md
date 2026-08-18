@@ -19,7 +19,8 @@ Alternatively use vscode but I haven't figured that part out yet.
 ### pictures yay
 
 testing out a bmp (oops)
-![a bmp i got the wrong one](bmp.jpeg)
+
+<img src="bmp.jpeg" alt= "bmp i got the wrong one" width="400px">
 
 ### hardware list for this
 - a waveshare RP2040-zero
