@@ -12,7 +12,7 @@ import board
 import busio
 
 # List of potential I2C busses
-ALL_I2C = ["board.I2C()", "board.STEMMA_I2C()", "busio.I2C(scl=board.GP5, sda=board.GP4)"]
+ALL_I2C = ["board.I2C()", "board.STEMMA_I2C()", "busio.I2C(scl=board.GP27, sda=board.GP26)"]
 
 ###
 
