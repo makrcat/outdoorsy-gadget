@@ -107,6 +107,24 @@ class DataStore:
         self.pressure_read = Reading()
         self.altitude_read = Reading()
         self.iaq_read = Reading()
+        
+        self.data_dict = {
+            "temp": self.temp_read,
+            "hum": self.humidity_read,
+            "press": self.pressure_read,
+            "alt": self.altitude_read,
+            "iaq": self.iaq_read
+        }
+        
+        self.longer_storage = {
+            "temp":[],
+            "hum":[],
+            "press":[],
+            "alt":[],
+            "iaq":[]
+        }
+        
+        # { "temp":[], "humidity:[], "pressure":[], "altitude":[], }
 
     @property
     def temp(self) -> float:
@@ -138,34 +156,29 @@ class DataStore:
         except Exception as e:
             print("Sensor read error:", e)
 
-    def shouldUpdate(self, s) -> bool:
-        if s == 'temp':
-            return self.temp_read.shouldUpdate()
-        if s == 'hum':
-            return self.humidity_read.shouldUpdate()
-        if s == 'press':
-            return self.pressure_read.shouldUpdate()
-        if s == 'alt':
-            return self.altitude_read.shouldUpdate()
-        if s == 'iaq':
-            return self.iaq_read.shouldUpdate()
-        
-        return False
+    def _shouldUpdate(self, s) -> bool:
+        if s in self.data_dict:
+            return self.data_dict[s].shouldUpdate()
+        else:
+            raise KeyError(f"shouldUpdate - sensor key not found!!!")
 
-    def commitUpdate(self, s: str) -> None:
-        """Call this right after drawing the value on screen to record the updated state."""
-        if s == 'temp':
-            self.temp_read.updateVal()
-        elif s == 'hum':
-            self.humidity_read.updateVal()
-        elif s == 'press':
-            self.pressure_read.updateVal()
-        elif s == 'alt':
-            self.altitude_read.updateVal()
-        elif s == 'iaq':
-            self.iaq_read.updateVal()
-            
+    def _commitUpdate(self, s: str) -> None:
+        if s in self.data_dict:
+            self.data_dict[s].updateVal()
+        else:
+            raise KeyError(f"commitUpdate - sensor key not found!!!")
+    
+    def checkAndUpdate(self, subjects: list[int]) -> bool:
+
+        an = False
         
+        for s in subjects:
+            if self._shouldUpdate(s):
+                self._commitUpdate(s)
+                an = True
+                
+        return an
+            
         
 
 data_store = DataStore(bme680)
@@ -192,7 +205,6 @@ master_group.append(bg_line)
 bat_group = None
 
 def _update_battery(level=5):
-    print("running battery stuff)")
     global bat_group
     
     if bat_group is not None:
@@ -293,16 +305,7 @@ class DashboardPage(Page):
 
     def run_idle(self):
         
-        up = False
-        varss = ['temp', 'hum', 'alt', 'iaq', 'press']
-        
-        for var in varss:
-            if self.store.shouldUpdate(var):
-                self.store.commitUpdate(var)
-            
-            if not up:
-                up = True
-            
+        up = self.store.checkAndUpdate(["temp", "alt", "hum", "iaq", "press"])
         if up: self.update_page()
         return up
 
@@ -332,16 +335,7 @@ class TemperaturePage(Page):
 
     def run_idle(self):
         
-        up = False
-        varss = ['temp', 'hum']
-        
-        for var in varss:
-            if self.store.shouldUpdate(var):
-                self.store.commitUpdate(var)
-            
-            if not up:
-                up = True
-            
+        up = self.store.checkAndUpdate(["temp", "hum"])
         if up: self.update_page()
         return up
 
@@ -373,16 +367,7 @@ class PressurePage(Page):
 
     def run_idle(self):
         
-        up = False
-        varss = ['alt', 'press']
-        
-        for var in varss:
-            if self.store.shouldUpdate(var):
-                self.store.commitUpdate(var)
-            
-            if not up:
-                up = True
-            
+        up = self.store.checkAndUpdate(["alt", "press"])
         if up: self.update_page()
         return up
 
@@ -414,7 +399,6 @@ page1_group.append(another)
 
 
 def show_page(idx):
-    print("running showpage")
     while len(content_group) > 0:
         content_group.pop()
 
@@ -424,7 +408,6 @@ def show_page(idx):
 
 
 def pagers():
-    print("pagers")
     global page_index
     page_index = (page_index + 1) % len(pages)
     show_page(page_index)
@@ -479,7 +462,6 @@ def print_active_sensors():
 while True:
 
     handle_buttons_modes() # update button modes booleans
-    #print_active_sensors() # debug
     
     ######## handle data sensor stuff
     last_sensor_read = 0

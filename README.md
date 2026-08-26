@@ -18,6 +18,12 @@ Alternatively use vscode but I haven't figured that part out yet.
 
 ### pictures yay
 
+timeskip: about 3 days. the e-ink works but it has a terribly long refresh rate so I'm waiting a while to get another monochrome one.
+
+so far we're testing the e-ink logic on the OLED (xd)
+
+<img src="bme.jpeg" alt="the bme and OLED (masquerading as an e-ink)" width="400px">
+
 testing out a bmp (oops)
 
 <img src="bmp.jpeg" alt= "bmp i got the wrong one" width="400px">
