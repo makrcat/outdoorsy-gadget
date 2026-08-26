@@ -9,7 +9,7 @@ from fourwire import FourWire
 import adafruit_bme680
 import vectorio
 from adafruit_display_shapes.line import Line
-
+from adafruit_displayio_layout.widgets.cartesian import Cartesian
 
 
 ## Reset displays
@@ -37,6 +37,8 @@ display = adafruit_ssd1681.SSD1681(
 )
 '''
 
+TIME_BTWN = 3.0
+
 
 ### BUTTONS ###
 next_button = digitalio.DigitalInOut(board.GP14)
@@ -63,14 +65,28 @@ display.auto_refresh = False
 class Reading:
     def __init__(self):
         self.log = []
+        self.time_log = []
         self.read_size = 6
         self.max_samples = 100
         self.last_change = None
+        
+    def get_data_log(self):
+        return self.log
+
+    def get_time_log(self):
+        return self.time_log
 
     def addReading(self, r):
+        global TIME_BTWN
+        
         if len(self.log) == self.max_samples:
             self.log.pop(0)
+            self.time_log.pop(0)
+            
         self.log.append(r)
+        
+        # time log
+        self.time_log.append(TIME_BTWN)
 
     def _shouldUpdate(self):
         if len(self.log) < self.read_size:
@@ -124,14 +140,6 @@ class DataStore:
             "iaq": self.iaq_read
         }
         
-        self.longer_storage = {
-            "temp":[],
-            "hum":[],
-            "press":[],
-            "alt":[],
-            "iaq":[]
-        }
-        
         # { "temp":[], "humidity:[], "pressure":[], "altitude":[], }
 
     @property
@@ -164,7 +172,7 @@ class DataStore:
         except Exception as e:
             print("Sensor read error:", e)
     
-    def checkAndUpdate(self, subjects: list[int]) -> bool:
+    def checkAndUpdate(self, subjects: list[str]) -> bool:
 
         an = False
         
@@ -174,8 +182,117 @@ class DataStore:
                 # gotta get through all of them
                 
         return an
+    
+    def getVariableData(self, s):
+        return self.data_dict[s]
             
+
+
+
+
+
+class SparkGraph:
+    def __init__(self, :)
+        self.polyline = vectorio.Polyline(
+            points=[], pixel_shader=palette
+        )
+        group.append(self.line)
+                 
+        self.xpos
+
+    def update(self, plot_points):
+        self.line.points = plot_points
+            
+
+class DataGraph:
+    def __init__(self, xpos, ypos, width, height, group):
         
+        self.sparkgraph = SparkGraph(xpos, ypos, width, height, group)   
+        self.fromStart = False # starting from left of the graph, or right?
+        
+    def _getLastRange(self, data_log, time_log, x_range_recent):
+        """ data log is a bunch of [33.3, 44.4, 55.5] data for say, temperature.
+            now time_log is a bunch of corresponding TIME_BTWN at the time of measurement..
+            data updates in parallel with its "waited-before" seconds in the time log at the same index
+            
+            first get the by_n_seconds counting backwards. all of those
+            [33.3, 55.5, notskipping.notskip, blah blah, latest_temp]
+            [3,    3,    3                  , 3        , 10]
+            
+            
+            and return a thing that's sort of graphable
+"""
+        
+
+        start_idx = 0 # -1
+        accumulated_time = 0
+        
+        
+        for i in range(len(time_log) - 1, -1, -1):
+            accumulated_time += time_log[i]
+            if accumulated_time >= x_range_recent:
+                start_idx = i #it goes one extra but that's ok
+                break
+             
+        recent_data = []
+        recent_time = []
+        
+        if start_idx == -1:
+            self.fromStart = True
+        else:
+            self.fromStart = False
+
+        return start_idx
+
+    def _getPlotPointsAndMinMax(self, data_log, time_log, x_range_recent):
+
+        if not data_log or not time_log:
+            return
+        
+        if len(data_log) != len(time_log):
+            print("why is data log not the same length as time log")
+            print(data_log)
+            print(time_log)
+            return
+
+
+        start_idx = self._getLastRange(data_log, time_log, x_range_recent)
+        # start idx and forward..
+        
+        # for regular startFromLeft plot points..
+        plot_points = []
+        new_x_time = 0
+        
+        
+        # everyminus is for offsetting them 
+        everyminus = 0
+        if not self.fromStart:
+            total_recent_time = sum(time_log[i] for i in range(start_idx + 1, len(time_log)))
+            everyminus = total_recent_time - x_range_recent
+            
+            
+        rmax = float('-inf')
+        rmin = float('inf')
+        
+        # GET PLOT POINTS
+        for i in range(start_idx, len(data_log)):
+        # Force elapsed time for the first point to 0
+            delta_t = 0 if i == start_idx else time_log[i]
+            new_x_time += delta_t
+            plot_points.append((new_x_time - everyminus, data_log[i]))
+            
+            if data_log[i] < rmin: rmin = data_log[i]
+            if data_log[i] > rmax: rmax = data_log[i] 
+            
+        return plot_points, (rmin, rmax)
+    
+    def draw_the_shit(self, data_log, time_log, x_range_recent):
+        plot_points, (rmin, rmax) = self._getPlotPointsAndMinMax(
+            data_log, time_log, x_range_recent
+        )
+
+        self.sparkgraph.draw(plot_points, x_range_recent, rmin, rmax)
+    
 
 data_store = DataStore(bme680)
 
@@ -227,6 +344,7 @@ def _update_battery(level=5):
 
 content_group = displayio.Group()
 master_group.append(content_group)
+
 
 
 ### PAGE ARCHITECTURE ###
@@ -319,10 +437,16 @@ class TemperaturePage(Page):
         self.hum_lbl = label.Label(terminalio.FONT, text="RH: --.- %", color=0x000000, x=6, y=45, scale=1)
         self.group.append(self.temp_lbl)
         self.group.append(self.hum_lbl)
+        
+        self.graph = DataGraph(40, 10, 80, 40, this.group)
+        self.graph_var = "temp"
 
     def _update_page(self):
         self.temp_lbl.text = f"{self.store.temp:.1f} *C"
         self.hum_lbl.text = f"RH: {self.store.humidity:.1f} %"
+        
+        readings = self.store.getVariableData(self.graph_var)
+        self.graph.draw(readings.get_data_log(), readings.get_time_log(), self.graph_range) #TODOA
 
     def on_short_select(self):
         pass
@@ -467,7 +591,7 @@ while True:
     ######## handle data sensor stuff
 
     now = time.monotonic()
-    if now - last_sensor_read >= 3.0:  # Read every 3 seconds
+    if now - last_sensor_read >= TIME_BTWN:  # Read every 3 seconds
         data_store.update()
         last_sensor_read = now
     ########

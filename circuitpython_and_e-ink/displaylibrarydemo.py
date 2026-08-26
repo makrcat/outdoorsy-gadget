@@ -44,10 +44,6 @@ my_group = displayio.Group()
 my_group.append(my_plane)
 display.root_group = my_group   # add high level Group to the display
 
-
-
-my_plane.add_plot_line(0, 0)
-
 done = False
 
 while not done:
