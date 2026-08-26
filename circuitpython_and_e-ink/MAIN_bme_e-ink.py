@@ -63,34 +63,42 @@ display.auto_refresh = False
 class Reading:
     def __init__(self):
         self.log = []
-        self.reading_sample_size = 6
+        self.read_size = 6
+        self.max_samples = 100
         self.last_change = None
 
     def addReading(self, r):
-        if len(self.log) == self.reading_sample_size:
+        if len(self.log) == self.max_samples:
             self.log.pop(0)
         self.log.append(r)
 
-    def shouldUpdate(self):
-        if len(self.log) < self.reading_sample_size:
+    def _shouldUpdate(self):
+        if len(self.log) < self.read_size:
             return False
         
         if self.last_change is None:
-            return True
+            return True # yeah so there's no error down there vv
 
-        if len(self.log) == self.reading_sample_size:
-            mean = sum(self.log) / len(self.log)
-            latest = self.log[-1]
+        samples = self.log[-1 * self.read_size:]
+        
+        mean = sum(samples) / len(samples)
+        latest = samples[-1]
             
-            if abs(mean - latest) > 0.2 or abs(self.last_change - mean) >= 0.1:
-                return True
+        if abs(mean - latest) > 0.2 or abs(self.last_change - mean) >= 0.1:
+            return True
 
         return False
 
-    def updateVal(self):
+    def _updateVal(self):
         if self.log:
             self.last_change = self.log[-1]
         return self.last_change
+    
+    def checkMaybeUpdate(self) -> bool:
+        if self._shouldUpdate():
+            self._updateVal()
+            return True
+        return False
 
     def getReading(self):
         return self.log[-1] # should have updated before so that it's not empty. you can't get reading if you never updated the log
@@ -155,27 +163,15 @@ class DataStore:
             self.iaq_read.addReading(getattr(self.sensor, 'iaq', 0)) #TODO: what?
         except Exception as e:
             print("Sensor read error:", e)
-
-    def _shouldUpdate(self, s) -> bool:
-        if s in self.data_dict:
-            return self.data_dict[s].shouldUpdate()
-        else:
-            raise KeyError(f"shouldUpdate - sensor key not found!!!")
-
-    def _commitUpdate(self, s: str) -> None:
-        if s in self.data_dict:
-            self.data_dict[s].updateVal()
-        else:
-            raise KeyError(f"commitUpdate - sensor key not found!!!")
     
     def checkAndUpdate(self, subjects: list[int]) -> bool:
 
         an = False
         
         for s in subjects:
-            if self._shouldUpdate(s):
-                self._commitUpdate(s)
+            if self.data_dict[s].checkMaybeUpdate():
                 an = True
+                # gotta get through all of them
                 
         return an
             
@@ -250,7 +246,7 @@ class Page():
         self.header_label.text = text
 
     #@abstractmethod
-    def update_page(self):
+    def _update_page(self):
         """UPDATE SCREEN"""
         pass
 
@@ -267,6 +263,10 @@ class Page():
     #@abstractmethod
     def on_short_next(self):
         """Action when NEXT is clicked."""
+        pass
+    
+    def run_idle(self):
+        """Handle state changes and update page"""
         pass
 
 
@@ -288,7 +288,7 @@ class DashboardPage(Page):
         self.group.append(self.press_label)
         self.group.append(self.another)
 
-    def update_page(self):
+    def _update_page(self):
         self.temp_label.text = f"{self.store.temp:.1f}"
         self.hum_label.text = f"{self.store.humidity:.1f} %"
         self.alt_label.text = f"{self.store.altitude:.1f} m"
@@ -306,7 +306,7 @@ class DashboardPage(Page):
     def run_idle(self):
         
         up = self.store.checkAndUpdate(["temp", "alt", "hum", "iaq", "press"])
-        if up: self.update_page()
+        if up: self._update_page()
         return up
 
 
@@ -320,7 +320,7 @@ class TemperaturePage(Page):
         self.group.append(self.temp_lbl)
         self.group.append(self.hum_lbl)
 
-    def update_page(self):
+    def _update_page(self):
         self.temp_lbl.text = f"{self.store.temp:.1f} *C"
         self.hum_lbl.text = f"RH: {self.store.humidity:.1f} %"
 
@@ -336,7 +336,7 @@ class TemperaturePage(Page):
     def run_idle(self):
         
         up = self.store.checkAndUpdate(["temp", "hum"])
-        if up: self.update_page()
+        if up: self._update_page()
         return up
 
 
@@ -350,12 +350,11 @@ class PressurePage(Page):
         self.group.append(self.press_lbl)
         self.group.append(self.alt_lbl)
 
-    def update_page(self):
+    def _update_page(self):
         self.press_lbl.text = f"{self.store.pressure:.1f} hPa"
         self.alt_lbl.text = f"{self.store.altitude:.1f} m"
 
     def on_short_select(self):
-        
         # ok actually i think. we should uh. have it always idly run, on short select force an update. yeah
         pass
 
@@ -368,7 +367,7 @@ class PressurePage(Page):
     def run_idle(self):
         
         up = self.store.checkAndUpdate(["alt", "press"])
-        if up: self.update_page()
+        if up: self._update_page()
         return up
 
 # 3 active pages array
@@ -404,7 +403,7 @@ def show_page(idx):
 
     current_page = pages[idx]
     content_group.append(current_page.group)
-    current_page.update_page()
+    current_page._update_page()
 
 
 def pagers():
@@ -459,12 +458,13 @@ def print_active_sensors():
         i2c_sensor.unlock()
 '''
 
+last_sensor_read = 0 # bug fixed
+
 while True:
 
     handle_buttons_modes() # update button modes booleans
     
     ######## handle data sensor stuff
-    last_sensor_read = 0
 
     now = time.monotonic()
     if now - last_sensor_read >= 3.0:  # Read every 3 seconds
