@@ -22,16 +22,22 @@ MAX_SAMPLES = 240
 DATA_RANGE = [10, 30, 60, 120, 240]
 
 ### BUTTONS ###
-next_button = digitalio.DigitalInOut(board.GP14)
+next_button = digitalio.DigitalInOut(board.GP14) #14
 next_button.switch_to_input(pull=digitalio.Pull.UP)
-select_button = digitalio.DigitalInOut(board.GP15)
+select_button = digitalio.DigitalInOut(board.GP26) #26
 select_button.switch_to_input(pull=digitalio.Pull.UP)
 
-i2c_sensor = busio.I2C(scl=board.GP5, sda=board.GP4, frequency=100_000) #400
+i2c_sensor = busio.I2C(
+    scl=board.GP7,
+    sda=board.GP8,
+    frequency=100_000
+) #400
 bme680 = adafruit_bme680.Adafruit_BME680_I2C(i2c_sensor, address=0x77) 
 bme680.sea_level_pressure = 1017.9
 
-## TEMPORARY displays: ########
+
+
+'''
 
 import i2cdisplaybus
 import adafruit_displayio_sh1106
@@ -39,7 +45,34 @@ import adafruit_displayio_sh1106
 i2c_oled = busio.I2C(scl=board.GP7, sda=board.GP6)
 display_bus = i2cdisplaybus.I2CDisplayBus(i2c_oled, device_address=0x3C)
 display = adafruit_displayio_sh1106.SH1106(display_bus, width=128, height=64)
+'''
+
+
+import adafruit_st7789
+
+#DC / RES / CS -> any standard digital pin (SPI0)
+spi = busio.SPI(clock=board.GP2, MOSI=board.GP3)
+
+#SCL IS SERIAL CLOCK. GP2 is SPI0 SCK
+#SDA IS MOSI. GP3 is TX /MOSI
+
+display_bus = FourWire(
+    spi, 
+    command=board.GP0, # data command is any SPI0. I did GP0
+    chip_select=board.GP1,  # GP1 is SPI1 CSn
+    reset=None  
+)
+
+
+display = adafruit_st7789.ST7789(
+    display_bus, 
+    width=240, 
+    height=240, 
+    rowstart=80,
+    rotation=0
+)
 display.auto_refresh = False
+
 
 ############3
 
