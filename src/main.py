@@ -16,6 +16,7 @@ from DashboardPage import DashboardPage
 from TemperaturePage import TemperaturePage
 from PressurePage import PressurePage
 from AQIPage import AQIPage
+from SettingsPage import SettingsPage
 
 import gc
 
@@ -173,14 +174,14 @@ pages = [
     TemperaturePage(data_store),
     PressurePage(data_store),
     AQIPage(data_store),
+    SettingsPage(data_store),
 ]
 
-page_index = 0
-SMODE = False
-NMODE = False
+page_index = 4
 
 
 def show_page(idx):
+    
     while len(content_group) > 0:
         content_group.pop()
 
@@ -189,34 +190,63 @@ def show_page(idx):
 
     content_group.append(current_page.group)
     current_page.update_page()
+    
+    
     gc.collect()
 
 def pagers():
     global page_index
-    page_index = (page_index + 1) % len(pages)
+    page_index = (page_index + 1) % len(pages) 
     show_page(page_index)
 
 def global_init():
     data_store.update()
-    show_page(0)
+    show_page(page_index)
 
 global_init()
 
+last_sensor_read = 0 # bug fixed
+
+
+
+
+
+
+
+
+
+
 next_button_pressed_last = False
 select_button_pressed_last = False
-
+SMODE = False
+NMODE = False
+L_SMODE = False
+select_time_start_down = 0
+long_press_fired = False # prevent the long press always being written True while pressed
+long_thresh = 2.5
 
 def handle_buttons_modes():
     global next_button_pressed_last, select_button_pressed_last
-    global NMODE, SMODE
+    global NMODE, SMODE, L_SMODE, select_time_start_down, long_thresh, long_press_fired
     
     next_button_pressed = not next_button.value
     select_button_pressed = not select_button.value
 
-    SMODE = False
     NMODE = False
+    SMODE = False
+    L_SMODE = False
     
-    if select_button_pressed and not select_button_pressed_last:
+    if select_button_pressed and not select_button_pressed_last: # JUST PRESSED
+        select_time_start_down = time.monotonic()
+        long_press_fired = False
+        
+    elif select_button_pressed:
+        if (not long_press_fired) and time.monotonic() - select_time_start_down >= long_thresh:
+            L_SMODE = True
+            long_press_fired = True
+            
+    elif (select_button_pressed_last and not select_button_pressed 
+          and time.monotonic() - select_time_start_down < long_thresh):
         SMODE = True
         
     if next_button_pressed and not next_button_pressed_last:
@@ -224,29 +254,53 @@ def handle_buttons_modes():
         
     next_button_pressed_last = next_button_pressed
     select_button_pressed_last = select_button_pressed
-        
-    # print(f"NEXT: {next_button_pressed}, SELECT: {select_button_pressed}")
-
-last_sensor_read = 0 # bug fixed
-
-def handle_buttons_modes_computer():
-    global NMODE, SMODE
     
-    SMODE = False
+    
+    
+# Gemini-generated ####
+def handle_buttons_modes_computer():
+    global next_button_pressed_last, select_button_pressed_last
+    global NMODE, SMODE, L_SMODE, select_time_start_down, long_thresh, long_press_fired
+    
     NMODE = False
+    SMODE = False
+    L_SMODE = False
 
-    # PYGAME window events
+    # PYGAME window events (handles closing the window properly)
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             raise SystemExit
+
+    # Poll keyboard state continuously (similar to reading hardware pins)
+    keys = pygame.key.get_pressed()
+    next_button_pressed = keys[pygame.K_n] or keys[pygame.K_RIGHT]
+    select_button_pressed = keys[pygame.K_s] or keys[pygame.K_RETURN]
+
+    # --- SELECT BUTTON LOGIC (Matches hardware) ---
+    if select_button_pressed and not select_button_pressed_last: # JUST PRESSED
+        select_time_start_down = time.monotonic()
+        long_press_fired = False
+        
+    elif select_button_pressed:
+        if (not long_press_fired) and time.monotonic() - select_time_start_down >= long_thresh:
+            L_SMODE = True
+            long_press_fired = True
             
-        elif event.type == pygame.KEYDOWN:
-            #k, s
-            if event.key == pygame.K_n or event.key == pygame.K_RIGHT:
-                NMODE = True
-            elif event.key == pygame.K_s or event.key == pygame.K_RETURN:
-                SMODE = True
+    elif (select_button_pressed_last and not select_button_pressed 
+          and time.monotonic() - select_time_start_down < long_thresh):
+        SMODE = True
+        
+    # --- NEXT BUTTON LOGIC ---
+    if next_button_pressed and not next_button_pressed_last:
+        NMODE = True
+        
+    next_button_pressed_last = next_button_pressed
+    select_button_pressed_last = select_button_pressed
+#########################
+
+
+
 
 while True:
 
@@ -263,9 +317,15 @@ while True:
         
         pages[page_index].data_schedule_update()
 
-    if NMODE: pagers()
+    if NMODE: 
+        if pages[page_index].on_short_next() != False:
+            pagers()
         
-    if SMODE: pages[page_index].on_short_select()
+    elif SMODE: 
+        pages[page_index].on_short_select()
+        
+    elif L_SMODE:
+        pages[page_index].on_long_select()
         
     pages[page_index].update_page()
     _update_battery()

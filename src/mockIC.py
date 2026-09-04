@@ -5,7 +5,7 @@ class MockBME680:
     def __init__(self):
         self._temp = 24.5
         self._hum = 50.0
-        self._press = 1013.25
+        self._press = 1034
         self._alt = 12.0
         self._gas = 25
 

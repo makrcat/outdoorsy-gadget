@@ -15,7 +15,7 @@ class PressureArea(displayio.Group):
         self.append(Rect(0, 0, 68, 42, fill=0x444444))
         self.append(Rect(0, 0, 68, 42, outline=0xFFFFFF))
         
-        self.append(label.Label(NINE_REG, text="Press:", color=0xFF9952, anchor_point=(0.0, 0.0), 
+        self.append(label.Label(NINE_REG, text="Pressur", color=0xFF9952, anchor_point=(0.0, 0.0), 
                                         anchored_position=(4, 0), scale=1))
         
         self.pressure_label = label.Label(NINE_REG, text="---- hPa", color=0xFF9952, anchor_point=(0.0, 0.0), 
@@ -52,33 +52,35 @@ class HILOBox(displayio.Group):
 
         self.append(Rect(0, 0, 68, 42, fill=0x444444))
         self.append(Rect(0, 0, 68, 42, outline=0xFFFFFF))
-        self.append(label.Label(NINE_REG, text="P.Lvl", color=0xFF7DE5, anchor_point=(0.0, 0.0), 
+        self.append(label.Label(NINE_REG, text="PsrLvl", color=0xFF7DE5, anchor_point=(0.0, 0.0), 
                                              anchored_position=(4, 0), scale=1))
         
-        self.HILO_label = label.Label(NINE_REG, text="High", color=0xFF7DE5,anchor_point=(0.0, 0.0), 
+        self.HILO_label = label.Label(NINE_REG, text="----", color=0xFF7DE5,anchor_point=(0.0, 0.0), 
                                      anchored_position=(4, 16),scale=1)
         self.append(self.HILO_label)
 
     def update(self, store):
-        pass
+        prsr = ["V LOW", "LOW", "NORMAL", "HIGH", "V HIGH"]
+        self.HILO_label.text = prsr[store.getVal("pressure_category")]
 
 
+pinfo = {
+    0:["Severe storm", "Very unstable weather! Severe storms and winds are imminent."],
+    1:["Unstable weather", "Unstable weather. Be ready for light wind and rain!"],
+    2:["Regular weather", "Very regular and fair weather. Expect clouds and some sun."],
+    3:["Clear skies", "Stable weather. Expect dry air, clear skies, and sunshine."],
+    4:["Extreme high", "Stable weather, but intense cold or heat depending on season."]
+}
         
 class DescriptionBox(displayio.Group):
     def __init__(self, x, y):
         super().__init__(x=x, y=y)
         self.append(Rect(0, 0, 86, 90, fill=0x444444))
         self.append(Rect(0, 0, 86, 90, outline=0xFFFFFF))
-        
-        wrapped_lines = adafruit_display_text.wrap_text_to_pixels(
-            "Possible Storm", 86, font=NINE_REG
-        ) #TODO: what why does this work
-        
-        formatted_text = "\n".join(wrapped_lines)
-        
+     
         self.header_label = label.Label(
             NINE, 
-            text=formatted_text, 
+            text="----", 
             color=0xEFBA0F, 
             line_spacing=0.8,
             anchor_point=(0.0, 0.0), 
@@ -88,7 +90,7 @@ class DescriptionBox(displayio.Group):
         
         self.description_label = label.Label(
             SPLEEN_EIGHT, 
-            text=wrap_text("Low pressure: warm air rises up, rapid cooling creates storms.", 80, SPLEEN_EIGHT), 
+            text=wrap_text("Loading", 80, SPLEEN_EIGHT), 
             line_spacing=1.25,
             color=0xFFFFFF, 
             anchor_point=(0.0, 0.0), 
@@ -100,7 +102,12 @@ class DescriptionBox(displayio.Group):
         self.append(self.description_label)
         
     def update(self, store):
-        pass
+        cat = store.getVal("pressure_category")
+        header = wrap_text(pinfo[cat][0], 82, NINE)
+        desc = wrap_text(pinfo[cat][1], 82, SPLEEN_EIGHT)
+        
+        self.header_label.text = header
+        self.description_label.text = desc
     
         
         
@@ -165,6 +172,8 @@ class PressurePage(Page):
     def update_page(self):
         self.pressure_box.update(self.store)
         self.altitude_text.update(self.store)
+        self.HILO_box.update(self.store)
+        self.description_box.update(self.store)
 
     def data_schedule_update(self):
         readings = self.store.getVariableData()

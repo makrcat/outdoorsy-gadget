@@ -109,27 +109,48 @@ class DataStore:
     def geteCO2(self) -> int:
         return 5000
 
+    def getPressCat(self):
+        p = self.getVal("pressure") 
+        
+        if p <= 1000:
+            return 0
+        elif p <= 1008:
+            return 1
+        elif p <= 1023:
+            return 2
+        elif p <= 1033:
+            return 3
+        else:
+            return 4
+        
+        
+        
+
     def getVal(self, metric):
         if metric == 'gas_resistance':
             return self.latest_values["gas_resistance"]
-        elif metric == 'aqi':
-            return self.getAQI()
-        elif metric == 'eCO2':
-            return self.geteCO2()
         elif metric == 'altitude':
             return self.latest_values["altitude"]
         elif metric == 'pressure':
             return self.latest_values["pressure"]
+        elif metric == 'humidity':
+            return self.latest_values["humidity"]
+        elif metric == 'temperature':
+            return self.latest_values["temperature"]
+        
+        elif metric == 'aqi':
+            return self.getAQI()
+        elif metric == 'eCO2':
+            return self.geteCO2()
         elif metric == 'dewpoint':
             return 0
         elif metric == 'boiling_point':
             return 100
         elif metric == 'feels_like':
             return self.getFL()
-        elif metric == 'humidity':
-            return self.latest_values["humidity"]
-        elif metric == 'temperature':
-            return self.latest_values["temperature"]
+        elif metric == 'pressure_category':
+            return self.getPressCat()
+        
         
         
         
@@ -208,7 +229,7 @@ class SparkGraph:
         self.ui_group.append(self.leftLabel)
         
         self.rightLabel = label.Label(terminalio.FONT, text="t-0", color=0xFFFFFF)
-        self.rightLabel.x = width - 8
+        self.rightLabel.x = width - 18
         self.rightLabel.y = height + 4
         self.ui_group.append(self.rightLabel)
         

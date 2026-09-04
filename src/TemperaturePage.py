@@ -86,15 +86,42 @@ class TamagotchiArea(displayio.Group):
         self.emoticon_label = "(^_^)"
 
 
+
+
+
+def weather_cat(temp):
+    if temp < -9: #15
+        return 0
+    elif temp < 0: #32
+        return 1
+    elif temp < 10: #50
+        return 2
+    elif temp < 18: #65
+        return 3
+    elif temp < 27: #80
+        return 4
+    elif temp < 35: #95
+        return 5
+
+pinfo = {
+    0:["Deep Freeze", "Dangerously cold, wear many layers of clothes."],
+    1:["Freezing", "Cold weather, watch for wind! Drink some warm water."],
+    2:["Cool Weather", "Crisp and refreshing weather, and a jacket will do."],
+    3:["Comfortable", "It's comfortable weather, good for strolling outdoors."],
+    4:["Hot Weather", "It's very hot, make sure to drink lots of water!"],
+    5:["Extremely hot", "Risk of heat stroke, try to stay in the shade or inside."]
+}
+        
+
 class DescriptionBox(displayio.Group):
     def __init__(self, x, y):
         super().__init__(x=x, y=y)
         self.append(Rect(0, 0, 86, 90, fill=0x444444))
         self.append(Rect(0, 0, 86, 90, outline=0xFFFFFF))
-
+     
         self.header_label = label.Label(
             NINE, 
-            text=wrap_text("Light Weather", 80, NINE), 
+            text="----", 
             color=0xEFBA0F, 
             line_spacing=0.8,
             anchor_point=(0.0, 0.0), 
@@ -104,7 +131,7 @@ class DescriptionBox(displayio.Group):
         
         self.description_label = label.Label(
             SPLEEN_EIGHT, 
-            text=wrap_text("Light layers may be optimal.", 80, SPLEEN_EIGHT), 
+            text=wrap_text("Loading", 80, SPLEEN_EIGHT), 
             line_spacing=1.25,
             color=0xFFFFFF, 
             anchor_point=(0.0, 0.0), 
@@ -116,8 +143,16 @@ class DescriptionBox(displayio.Group):
         self.append(self.description_label)
         
     def update(self, store):
-        pass
+        temp = store.getVal("temperature")
+        cat = weather_cat(temp)
+        header = wrap_text(pinfo[cat][0], 82, NINE)
+        desc = wrap_text(pinfo[cat][1], 82, SPLEEN_EIGHT)
+        
+        self.header_label.text = header
+        self.description_label.text = desc
     
+        
+        
         
 
 
@@ -170,6 +205,7 @@ class TemperaturePage(Page):
         self.temp_box.update(self.store)
         self.dew_box.update(self.store)
         self.FL_box.update(self.store)
+        self.description_box.update(self.store)
             
     def data_schedule_update(self):
         readings = self.store.getVariableData()
