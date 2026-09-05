@@ -1,12 +1,12 @@
 import displayio, terminalio
-from utilities import *
+from my_utilities import *
 from Page import Page
 from adafruit_display_shapes.line import Line
 from adafruit_display_shapes.rect import Rect
 from adafruit_display_text import label
 #TODO
 
-from fonts import NINE, NINE_REG, HAXOR, SPLEEN_EIGHT, PRAGATI_54
+from fonts import NINE, NINE_REG, SUBTEN, PRAGATI_54
 
 class PressureArea(displayio.Group):
     def __init__(self, x, y):
@@ -24,7 +24,7 @@ class PressureArea(displayio.Group):
                 
 
     def update(self, store):
-        self.pressure_label.text = f"{store.getVal("pressure"):.1f}"
+        self.pressure_label.text = f"{store.getVal('pressure'):.1f}"
 
 
 class BoilBox(displayio.Group):
@@ -37,13 +37,13 @@ class BoilBox(displayio.Group):
         self.append(label.Label(NINE_REG, text="Boiling", color=0x52E5FF, anchor_point=(0.0, 0.0), 
                                                 anchored_position=(4, 0), scale=1))
                 
-        self.boil_label = label.Label(NINE_REG, text="----C", color=0x52E5FF, anchor_point=(0.0, 0.0), 
+        self.boil_label = label.Label(NINE_REG, text="----", color=0x52E5FF, anchor_point=(0.0, 0.0), 
                                         anchored_position=(4, 16), scale=1)
         
         self.append(self.boil_label)
 
     def update(self, store):
-        self.boil_label.text = f"{store.getVal("boiling_point")} m"
+        self.boil_label.text = f"{store.getConvertedVal('boiling_point'):.1f}" + store.get_setting("temperature_unit")
         
         
 class HILOBox(displayio.Group):
@@ -61,7 +61,7 @@ class HILOBox(displayio.Group):
 
     def update(self, store):
         prsr = ["V LOW", "LOW", "NORMAL", "HIGH", "V HIGH"]
-        self.HILO_label.text = prsr[store.getVal("pressure_category")]
+        self.HILO_label.text = prsr[store.getConvertedVal('pressure_category')]
 
 
 pinfo = {
@@ -89,12 +89,12 @@ class DescriptionBox(displayio.Group):
         )
         
         self.description_label = label.Label(
-            SPLEEN_EIGHT, 
-            text=wrap_text("Loading", 80, SPLEEN_EIGHT), 
-            line_spacing=1.25,
+            SUBTEN, 
+            text=wrap_text("Loading", 82, SUBTEN), 
+            line_spacing=1.0,
             color=0xFFFFFF, 
             anchor_point=(0.0, 0.0), 
-            anchored_position=(5, 38), 
+            anchored_position=(5, 35), 
             scale=1
         )
         
@@ -104,7 +104,7 @@ class DescriptionBox(displayio.Group):
     def update(self, store):
         cat = store.getVal("pressure_category")
         header = wrap_text(pinfo[cat][0], 82, NINE)
-        desc = wrap_text(pinfo[cat][1], 82, SPLEEN_EIGHT)
+        desc = wrap_text(pinfo[cat][1], 82, SUBTEN)
         
         self.header_label.text = header
         self.description_label.text = desc
@@ -122,13 +122,13 @@ class AltitudeArea(displayio.Group):
         super().__init__(x=x, y=y)
 
         self.append(Rect(0, 0, 10, 10, fill=0x444444))
-        self.altitude_label = label.Label(PRAGATI_54, text="--m", color=0xFFFFFF, anchor_point=(0.0, 0.0), 
+        self.altitude_label = label.Label(PRAGATI_54, text="--", color=0xFFFFFF, anchor_point=(0.0, 0.0), 
                                      anchored_position=(0, 4), scale=1)
         self.append(self.altitude_label)
         
 
     def update(self, store):
-        self.altitude_label.text = f"{store.getVal("altitude"):.1f}m"
+        self.altitude_label.text = f"{store.getConvertedVal('altitude'):.1f}" + store.get_setting("measurement_unit")
 
 
 class PressurePage(Page):
@@ -174,6 +174,7 @@ class PressurePage(Page):
         self.altitude_text.update(self.store)
         self.HILO_box.update(self.store)
         self.description_box.update(self.store)
+        self.boil_box.update(self.store)
 
     def data_schedule_update(self):
         readings = self.store.getVariableData()

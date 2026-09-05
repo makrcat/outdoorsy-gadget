@@ -1,10 +1,10 @@
 import displayio, terminalio
-from utilities import *
+from my_utilities import *
 from Page import Page
 from adafruit_display_shapes.line import Line
 from adafruit_display_text import label
 from adafruit_display_shapes.rect import Rect
-from fonts import PRAGATI_54, BREMLIN_40, NINE_REG, NINE, SPLEEN_EIGHT
+from fonts import PRAGATI_54, PRAGATI_42, NINE_REG, NINE, SUBTEN
 
 
 class HumidityBox(displayio.Group):
@@ -41,7 +41,7 @@ class DewBox(displayio.Group):
         
 
     def update(self, store):
-        self.dew_label.text = f"{store.getVal("dewpoint"):.1f} %"
+        self.dew_label.text = f"{store.getConvertedVal("dewpoint"):.1f}" + store.get_setting("temperature_unit")
 
 class FLBox(displayio.Group):
     def __init__(self, x, y):
@@ -57,7 +57,7 @@ class FLBox(displayio.Group):
         self.append(self.FL_label)
 
     def update(self, store):
-        self.FL_label.text = f"{store.getVal("feels_like"):.1f}C"
+        self.FL_label.text = f"{store.getConvertedVal("feels_like"):.1f}" + store.get_setting("temperature_unit")
 
 
 class TempArea(displayio.Group):
@@ -65,49 +65,49 @@ class TempArea(displayio.Group):
         super().__init__(x=x, y=y)
 
         self.append(Rect(0, 0, 10, 10, fill=0x444444))
-        self.temp_label = label.Label(PRAGATI_54, text="-- dw", color=0xFFFFFF, anchor_point=(0.0, 0.0), 
+        self.temp_label = label.Label(PRAGATI_54, text="--", color=0xFFFFFF, anchor_point=(0.0, 0.0), 
                                      anchored_position=(0, 4), scale=1)
         self.append(self.temp_label)
         
 
     def update(self, store):
-        self.temp_label.text = f"{store.getVal("temperature"):.1f}"
+        self.temp_label.text = f"{store.getConvertedVal("temperature"):.1f}" + store.get_setting("temperature_unit")
 
 class TamagotchiArea(displayio.Group):
     def __init__(self, x, y):
         super().__init__(x=x, y=y)
 
         self.append(Rect(0, 0, 10, 10, fill=0x444444))
-        self.emoticon_label = label.Label(BREMLIN_40, text="(^_^)", color=0xFFFFFF, anchor_point=(0.0, 0.0), 
+        self.emoticon_label = label.Label(PRAGATI_42, text="(>_<)", color=0xFFFFFF, anchor_point=(0.0, 0.0), 
                                      anchored_position=(0, 4), scale=1)
         self.append(self.emoticon_label)
 
     def update(self, store):
-        self.emoticon_label = "(^_^)"
+        self.emoticon_label = "(>_<)"
 
 
 
 
 
 def weather_cat(temp):
-    if temp < -9: #15
-        return 0
-    elif temp < 0: #32
-        return 1
-    elif temp < 10: #50
-        return 2
-    elif temp < 18: #65
-        return 3
-    elif temp < 27: #80
-        return 4
-    elif temp < 35: #95
+    if temp > 35: 
         return 5
+    elif temp > 27:
+        return 4
+    elif temp > 18:
+        return 3
+    elif temp > 5:
+        return 2
+    elif temp > -9: 
+        return 1
+    else:
+        return 0
 
 pinfo = {
     0:["Deep Freeze", "Dangerously cold, wear many layers of clothes."],
     1:["Freezing", "Cold weather, watch for wind! Drink some warm water."],
     2:["Cool Weather", "Crisp and refreshing weather, and a jacket will do."],
-    3:["Comfortable", "It's comfortable weather, good for strolling outdoors."],
+    3:["Nice Weather", "It's comfortable weather, good for strolling outdoors."],
     4:["Hot Weather", "It's very hot, make sure to drink lots of water!"],
     5:["Extremely hot", "Risk of heat stroke, try to stay in the shade or inside."]
 }
@@ -130,12 +130,12 @@ class DescriptionBox(displayio.Group):
         )
         
         self.description_label = label.Label(
-            SPLEEN_EIGHT, 
-            text=wrap_text("Loading", 80, SPLEEN_EIGHT), 
-            line_spacing=1.25,
+            SUBTEN, 
+            text=wrap_text("Loading", 80, SUBTEN), 
+            line_spacing=1.0,
             color=0xFFFFFF, 
             anchor_point=(0.0, 0.0), 
-            anchored_position=(5, 38), 
+            anchored_position=(5, 35), 
             scale=1
         )
         
@@ -145,8 +145,9 @@ class DescriptionBox(displayio.Group):
     def update(self, store):
         temp = store.getVal("temperature")
         cat = weather_cat(temp)
+        
         header = wrap_text(pinfo[cat][0], 82, NINE)
-        desc = wrap_text(pinfo[cat][1], 82, SPLEEN_EIGHT)
+        desc = wrap_text(pinfo[cat][1], 82, SUBTEN)
         
         self.header_label.text = header
         self.description_label.text = desc
@@ -165,7 +166,7 @@ class TemperaturePage(Page):
 
         self.temp_box = TempArea(x=14, y=31)
         self.group.append(self.temp_box)
-        self.tamagotchi_box = TamagotchiArea(x=140, y=31)
+        self.tamagotchi_box = TamagotchiArea(x=150, y=31)
         self.group.append(self.tamagotchi_box)
         
         self.humidity_box = HumidityBox(x=14, y=84)

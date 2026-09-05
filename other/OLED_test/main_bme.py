@@ -123,7 +123,7 @@ def screen1():
 
 splash2 = displayio.Group(x=2, y=0)
 press_label = label.Label(terminalio.FONT, text="Press: ---- hPa", color=0xFFFFFF, x=10, y=24)
-alt_label = label.Label(terminalio.FONT, text="Alt: ---- m", color=0xFFFFFF, x=10, y=36)
+alt_label = label.Label(terminalio.FONT, text="Alt: ---- m", color=0xFFFFFF, x=10, y=35)
 splash2.append(press_label)
 splash2.append(alt_label)
 

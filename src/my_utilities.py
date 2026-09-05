@@ -5,7 +5,6 @@ import time
 import bitmaptools
 from adafruit_display_text import label
 import adafruit_display_text
-from utilities import *
 
 import math
 
@@ -90,18 +89,43 @@ class DataStore:
             "altitude": 0,
             "gas_resistance": 0
         }
+        
+        self.settings = {
+            "temperature_unit": "F",
+            "measurement_unit": "m",
+            "interval": 3.0,
+        }
+        
+    def set_sea_level(self, val):
+        self.sensor.sea_level_pressure = int(val)
+        
+    def get_sea_level(self):
+        return self.sensor.sea_level_pressure
 
+    def set_setting(self, key, value):
+        if key in self.settings:
+            self.settings[key] = value
+        else:
+            raise KeyError("That is not a valid key in settings")
+        
+    def get_setting(self, key):
+        if key in self.settings:
+            return self.settings[key]
+        else:
+            raise KeyError("That is not a valid key in settings")
 
     def getFL(self) -> float:
+        temp_c = self.latest_values["temperature"]
         hum = self.latest_values["humidity"]
-        temp = self.latest_values["temperature"]
 
-        a = 17.625
-        b = 243.04
+        # Approximate water vapor pressure (hPa) from temp and humidity
+        # e = (humidity / 100) * 6.105 * exp((17.27 * temp) / (237.7 + temp))
+        e = (hum / 100.0) * 6.105 * math.exp((17.27 * temp_c) / (237.7 + temp_c))
 
-        alpha = ((a * temp) / (b + temp)) + math.log(hum / 100.0)
-        dew_point = (b * alpha) / (a - alpha)
-        return round(dew_point, 2)
+        # Steadman's approximation formula: Apparent Temp = T + 0.33 * e - 0.70 * wind - 4.0
+        apparent_temp_c = temp_c + (0.33 * e) - 0.70
+            
+        return round(apparent_temp_c, 1)
     
     def getAQI(self) -> int:
         return 5
@@ -123,9 +147,34 @@ class DataStore:
         else:
             return 4
         
+    def log10(self, n):
+        result = math.log(n) / math.log(10)
+        return result
         
+    def getBoilingPoint(self):
+        p_mmhg = self.latest_values["pressure"] * 0.750062
+    
+        A = 8.07131
+        B = 1730.63
+        C = 233.426
+        
+        boiling_temp_c = (B / (A - self.log10(p_mmhg))) - C
+        return boiling_temp_c
+        
+        
+    def getDewPoint(self):
+        
+        temp_c = self.latest_values["temperature"]
+        rh = self.latest_values["humidity"]
+
+        a = 17.625
+        b = 243.04 
         
 
+        alpha = ((a * temp_c) / (b + temp_c)) + math.log(rh / 100.0)
+        dew_point_c = (b * alpha) / (a - alpha)
+        return dew_point_c
+        
     def getVal(self, metric):
         if metric == 'gas_resistance':
             return self.latest_values["gas_resistance"]
@@ -143,13 +192,35 @@ class DataStore:
         elif metric == 'eCO2':
             return self.geteCO2()
         elif metric == 'dewpoint':
-            return 0
+            return self.getDewPoint()
         elif metric == 'boiling_point':
-            return 100
+            return self.getBoilingPoint()
         elif metric == 'feels_like':
             return self.getFL()
         elif metric == 'pressure_category':
             return self.getPressCat()
+        
+
+    def getConvertedVal(self, metric) -> str:
+        val = self.getVal(metric)
+        
+        
+        ## FT / M conversion
+        if metric == 'altitude':
+            if self.settings["measurement_unit"] == "ft":
+                return round(val * 3.28084, 1)
+            return round(val, 1)
+        
+        
+        ## F / C conversion
+        elif metric in ['temperature', 'feels_like', 'dewpoint', 'boiling_point']:
+            if self.settings["temperature_unit"] == "F": 
+                f_val = val * 9/5 + 32
+                return round(f_val, 1)
+            return round(val, 1)
+        
+        else:
+            return val
         
         
         
@@ -420,12 +491,12 @@ class DataGraph:
         self.sparkgraph.draw(plot_points, x_range_recent, rmin, rmax)
     
 class tempGradientObject:
-    def __init__(self, xpos, ypos, width, height, value, colorz, group, orientation="vertical"):
+    def __init__(self, xpos, ypos, width, height, pc, colorz, group, orientation="vertical"):
         self.xpos = xpos
         self.ypos = ypos
         self.width = width
         self.height = height
-        self.value = value
+        self.value = (pc * self.height)
         self.colorz = colorz
         self.group = group
         self.orientation = orientation
@@ -519,9 +590,13 @@ class tempGradientObject:
                 color_index = self.height - 1 - y 
                 self.bitmap[0, y] = color_index
 
-    def update(self, n):
-        self.value = n
-        self._draw()
+    def update(self, pc):
+        self.value = int(pc * self.height)
         
+        color_list = self.outputHEXfrom()
+        for i in range(len(color_list)):
+            self.palette[i] = color_list[i]
+            
+        self._draw()
 
             

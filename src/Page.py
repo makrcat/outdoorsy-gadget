@@ -1,6 +1,6 @@
 import displayio, terminalio
 from adafruit_display_text import label
-from fonts import HAXOR, NINE
+from fonts import NINE
 
 class Page():
     def __init__(self, header_text=""):

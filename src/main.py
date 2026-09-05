@@ -1,16 +1,13 @@
+import displayio, digitalio 
+from my_utilities import *
+from fonts import SUBTEN
 
-import displayio
-import terminalio
-import time
-import bitmaptools
-from adafruit_display_text import label
-from utilities import *
+# import board, busio
 from Page import *
 
 
 from adafruit_display_shapes.line import Line
 from adafruit_display_shapes.rect import Rect
-from adafruit_displayio_layout.widgets.cartesian import Cartesian
 from mockIC import MockBME680
 from DashboardPage import DashboardPage
 from TemperaturePage import TemperaturePage
@@ -19,11 +16,9 @@ from AQIPage import AQIPage
 from SettingsPage import SettingsPage
 
 import gc
+gc.collect()
 
-## Reset displays
 displayio.release_displays()
-
-COMPUTER = True
 
 display = None
 bme680 = None
@@ -31,19 +26,12 @@ next_button = None
 select_button = None
 
 
+COMPUTER = True
 
-if not COMPUTER:
-    import board
-    import digitalio
-    from fourwire import FourWire
-    import adafruit_bme680
-else:
-
+if COMPUTER:
     import pygame
     from blinka_displayio_pygamedisplay import PyGameDisplay
 
-
-if COMPUTER:
     display = PyGameDisplay(240, 240)
     display.auto_refresh = False
 
@@ -51,8 +39,12 @@ if COMPUTER:
     bme680.sea_level_pressure = 1017.9
 
 else:
+    import board, busio
+    from fourwire import FourWire
+    import adafruit_bme680
+    import adafruit_st7789
 
-    ### BUTTONS ###
+
     next_button = digitalio.DigitalInOut(board.GP14) #14
     next_button.switch_to_input(pull=digitalio.Pull.UP)
     select_button = digitalio.DigitalInOut(board.GP26) #26
@@ -65,10 +57,10 @@ else:
         frequency=100_000
     ) #400
 
+
     bme680 = adafruit_bme680.Adafruit_BME680_I2C(i2c_sensor, address=0x77) 
     bme680.sea_level_pressure = 1017.9
 
-    import adafruit_st7789
 
     #DC / RES / CS -> any standard digital pin (SPI0)
     spi = busio.SPI(clock=board.GP2, MOSI=board.GP3)
@@ -120,9 +112,9 @@ master_group.append(bg_line)
 bat_palette = displayio.Palette(5) 
 bat_palette[0] = 0x000000 
 bat_palette[1] = 0xFFFFFF
-bat_palette[2] = 0xFF0000
-bat_palette[3] = 0x00FFFF
-bat_palette[4] = 0xFFFF00  
+bat_palette[2] = 0x00FFFF
+bat_palette[3] = 0xFFA500
+bat_palette[4] = 0xFF0000  
 
 bat_bitmap = displayio.Bitmap(22, 10, 5) 
 bat_tilegrid = displayio.TileGrid(bat_bitmap, pixel_shader=bat_palette) 
@@ -130,6 +122,16 @@ bat_tilegrid = displayio.TileGrid(bat_bitmap, pixel_shader=bat_palette)
 bat_group = displayio.Group(x=display.width - 28, y=5) 
 bat_group.append(bat_tilegrid) 
 master_group.append(bat_group) 
+
+signal = label.Label(
+    terminalio.FONT, 
+    text="00%", 
+    color=0xFFFFFF, 
+    anchor_point=(1.0, 0.0),
+    anchored_position=(display.width - 28 -4, 4), 
+    scale=1
+)
+master_group.append(signal)
 
 def better_bitmap_fill(bat_bitmap, x, y, w, h, value):
     bitmaptools.fill_region(bat_bitmap, x, y, x+w, y+h, value)
@@ -139,14 +141,16 @@ def better_bitmap_fill(bat_bitmap, x, y, w, h, value):
 
 def draw_battery_shell():
     bat_bitmap.fill(0)
-    
+
     better_bitmap_fill(bat_bitmap, 0, 0, 20, 10, value=1)
-    better_bitmap_fill(bat_bitmap, 20, 2, 22, 6, value=1)
+    better_bitmap_fill(bat_bitmap, 20, 2, 2, 6, value=1) 
     better_bitmap_fill(bat_bitmap, 1, 1, 18, 8, value=0)
 
 draw_battery_shell() # just once
 
-def _update_battery(percentage=0.5):
+def _update_battery(percentage=0.27):
+    signal.text = str(int(percentage * 100)) + "%"
+    
     if percentage > 0.6:
         pcolor = 2
     elif percentage > 0.2:
@@ -170,29 +174,37 @@ master_group.append(content_group)
 
 
 pages = [
-    DashboardPage(data_store),
-    TemperaturePage(data_store),
-    PressurePage(data_store),
-    AQIPage(data_store),
-    SettingsPage(data_store),
+    DashboardPage,
+    TemperaturePage,
+    PressurePage,
+    AQIPage,
+    SettingsPage,
 ]
 
 page_index = 4
+current_page_instance = None
 
 
 def show_page(idx):
     
+    global current_page_instance
+    
     while len(content_group) > 0:
         content_group.pop()
-
-    current_page = pages[idx]
-    current_page.on_show()
-
-    content_group.append(current_page.group)
-    current_page.update_page()
+        
+    current_page_instance = None
+    gc.collect()
     
+    page_class = pages[idx]
+    current_page_instance = page_class(data_store)
+    
+    current_page_instance.on_show()
+    content_group.append(current_page_instance.group)
+    current_page_instance.update_page()
     
     gc.collect()
+    
+    
 
 def pagers():
     global page_index
@@ -304,31 +316,30 @@ def handle_buttons_modes_computer():
 
 while True:
 
-    #change
-    if COMPUTER:
-        handle_buttons_modes_computer()
-    else:
-        handle_button_modes()
+    
+    if COMPUTER: handle_buttons_modes_computer()
+    else: handle_buttons_modes()
 
     now = time.monotonic()
-    if now - last_sensor_read >= TIME_BTWN: 
+    if now - last_sensor_read >= TIME_BTWN:  
         data_store.update()
         last_sensor_read = now
         
-        pages[page_index].data_schedule_update()
+        current_page_instance.data_schedule_update()
 
-    if NMODE: 
-        if pages[page_index].on_short_next() != False:
+    if NMODE:  
+        if current_page_instance.on_short_next() != False:
             pagers()
         
-    elif SMODE: 
-        pages[page_index].on_short_select()
+    elif SMODE:  
+        current_page_instance.on_short_select()
         
     elif L_SMODE:
-        pages[page_index].on_long_select()
+        current_page_instance.on_long_select()
         
-    pages[page_index].update_page()
+    current_page_instance.update_page()
     _update_battery()
     display.refresh()
         
-    time.sleep(0.01) 
+    time.sleep(0.01)
+

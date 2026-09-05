@@ -1,0 +1,1 @@
+fontforge -script trims.py src/fontsBDF/6x10.bdf src/fontsBDF/6x10t.bdf

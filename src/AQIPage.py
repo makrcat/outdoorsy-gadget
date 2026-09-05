@@ -1,10 +1,10 @@
 import displayio, terminalio
-from utilities import *
+from my_utilities import *
 from Page import Page
 from adafruit_display_shapes.line import Line
 from adafruit_display_text import label
 from adafruit_display_shapes.rect import Rect
-from fonts import PRAGATI_54, BREMLIN_40, NINE_REG, NINE, SPLEEN_EIGHT
+from fonts import PRAGATI_54, NINE_REG, NINE, SUBTEN
 
 
 class eCO2(displayio.Group):
@@ -54,12 +54,12 @@ class DescriptionBox(displayio.Group):
         )
         
         self.description_label = label.Label(
-            SPLEEN_EIGHT, 
-            text=wrap_text("Air quality is decent.", 80, SPLEEN_EIGHT), 
-            line_spacing=1.25,
+            SUBTEN, 
+            text=wrap_text("Air quality is decent.", 80, SUBTEN), 
+            line_spacing=1.0,
             color=0xFFFFFF, 
             anchor_point=(0.0, 0.0), 
-            anchored_position=(5, 38), 
+            anchored_position=(5, 35), 
             scale=1
         )
         

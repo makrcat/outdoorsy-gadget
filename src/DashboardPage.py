@@ -1,10 +1,10 @@
 import displayio, terminalio
-from utilities import *
+from my_utilities import *
 from Page import Page
 from adafruit_display_shapes.rect import Rect
 from adafruit_display_shapes.line import Line
 from adafruit_display_text import label
-from fonts import PRAGATI_42, HAXOR, NINE, PRAGATI_22
+from fonts import PRAGATI_42, PRAGATI_22
 
 
 class TempBox(displayio.Group):
@@ -15,7 +15,7 @@ class TempBox(displayio.Group):
         
         self.temp_label = label.Label(
             PRAGATI_42, 
-            text="--.- *C", 
+            text="--.-", 
             color=0xFFFFFF, 
             anchor_point=(0.0, 0.0),
             anchored_position=(20, 12), 
@@ -32,7 +32,7 @@ class TempBox(displayio.Group):
         self.append(self.temp_label)
         self.append(self.hum_label)
         
-        self.gradient = tempGradientObject(xpos=0, ypos=0, width=12, height=84, value=40, 
+        self.gradient = tempGradientObject(xpos=0, ypos=0, width=12, height=84, pc=0.5, 
                                            colorz=[0x0FEFD8, 0xC300FF, 0xFF0000], group=self)
         self.append(Rect(0, 0, 12, 84, outline=0xFFFFFF))
         
@@ -41,8 +41,11 @@ class TempBox(displayio.Group):
         self.append(label.Label(terminalio.FONT, text='0', color=0xFFFFFF, x=4, y=76, scale=1))
 
     def update(self, store):
-        self.temp_label.text = f"{store.getVal("temperature"):.1f}"
+        temp_con = store.getConvertedVal("temperature")
+        self.temp_label.text = f"{temp_con:.1f}"+ store.get_setting("temperature_unit")
         self.hum_label.text = f"{store.getVal("humidity"):.1f}% hu"
+        
+        self.gradient.update(temp_con / 100)
 
 class GasBox(displayio.Group):
     def __init__(self, x, y):
@@ -73,7 +76,7 @@ class GasBox(displayio.Group):
         self.append(self.eCO2_label)
 
         self.gradient = tempGradientObject(
-            xpos=4, ypos=78, width=100, height=7, value=100, group=self, 
+            xpos=4, ypos=78, width=100, height=7,pc=1.0, group=self, 
             colorz=[0x31D726, 0xE6C329, 0xDF752F, 0xDB2424, 0x892ADC], 
             orientation='horizontal'
         )
@@ -91,11 +94,11 @@ class AltBox(displayio.Group):
         super().__init__(x=x, y=y)
 
         self.alt_label = label.Label(
-            PRAGATI_42, 
-            text="--m", 
+            PRAGATI_42,
+            text="---", 
             color=0xFFFFFF,
-            anchor_point=(0.0, 0.0),
-            anchored_position=(8, 12), 
+            anchor_point=(0.5, 0.0),
+            anchored_position=(42, 12 ), 
             scale=1
             )
         self.press_label = label.Label(
@@ -138,8 +141,24 @@ class AltBox(displayio.Group):
         self.append(tile_grid)
 
     def update(self, store):
-        self.alt_label.text = f"{store.getVal("altitude"):.0f}m"
+      
+        '''
+        alt_string = f"{store.getConvertedVal('altitude'):.0f}"
+        
+        # update font if needed
+        
+        if len(alt_string) >= 4 and self.alt_label.font != PRAGATI_22:
+            self.alt_label.font = PRAGATI_22
+            self.alt_label.scale = 2
+        elif len(alt_string) < 4 and self.alt_label.font != PRAGATI_42:
+            self.alt_label.font = PRAGATI_42
+            self.alt_label.scale = 1
+        '''  
+            
+        self.alt_label.text = f"{store.getConvertedVal("altitude"):.0f}" + store.get_setting("measurement_unit")
         self.press_label.text = f"{store.getVal("pressure"):.0f} hPa"
+        
+            
 
 class LastBox(displayio.Group):
     def __init__(self, x, y):
