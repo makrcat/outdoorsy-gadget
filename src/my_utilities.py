@@ -388,9 +388,6 @@ class SparkGraph:
                 self.bitmap[px, py] = 1
 
             prev_px, prev_py = px, py
-        
-        
-        print(plot_points)
             
 
 class DataGraph:
@@ -421,9 +418,6 @@ class DataGraph:
                 start_idx = i #it goes one extra but that's ok
                 break
              
-        recent_data = []
-        recent_time = []
-        
         alignLeft = False
   
         if start_idx == -1:
@@ -441,8 +435,6 @@ class DataGraph:
         
         if len(data_log) != len(time_log):
             print("why is data log not the same length as time log")
-            print(data_log)
-            print(time_log)
             return
 
 
@@ -496,7 +488,12 @@ class tempGradientObject:
         self.ypos = ypos
         self.width = width
         self.height = height
-        self.value = (pc * self.height)
+        
+        if orientation == 'horizontal':
+            self.value = (pc * self.width)
+        else:
+            self.value = (pc * self.height)
+            
         self.colorz = colorz
         self.group = group
         self.orientation = orientation

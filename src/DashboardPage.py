@@ -81,7 +81,6 @@ class GasBox(displayio.Group):
             orientation='horizontal'
         )
         
-        # Gradient Outline
         self.append(Rect(4, 78, 100, 7, outline=0xFFFFFF))
 
     def update(self, store):

@@ -3,7 +3,7 @@ from terminalio import FONT
 
 
 NINE_REG = bitmap_font.load_font("fontsPCF/9x18.pcf")
-NINE = bitmap_font.load_font("fontsPCF/9x18B.pcf")
+NINE = NINE_REG
 
 PRAGATI_22 = bitmap_font.load_font("fontsPCF/Pragati_22.pcf")
 PRAGATI_42 = bitmap_font.load_font("fontsPCF/Pragati_42.pcf")

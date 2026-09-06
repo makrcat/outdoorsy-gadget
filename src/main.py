@@ -26,7 +26,7 @@ next_button = None
 select_button = None
 
 
-COMPUTER = True
+COMPUTER = False
 
 if COMPUTER:
     import pygame
@@ -316,30 +316,35 @@ def handle_buttons_modes_computer():
 
 while True:
 
-    
     if COMPUTER: handle_buttons_modes_computer()
     else: handle_buttons_modes()
 
     now = time.monotonic()
-    if now - last_sensor_read >= TIME_BTWN:  
+    page_needs_render = False
+
+    if now - last_sensor_read >= TIME_BTWN:
         data_store.update()
         last_sensor_read = now
-        
         current_page_instance.data_schedule_update()
+        page_needs_render = True
 
-    if NMODE:  
+    if NMODE:
         if current_page_instance.on_short_next() != False:
             pagers()
-        
-    elif SMODE:  
+        page_needs_render = True
+
+    elif SMODE:
         current_page_instance.on_short_select()
-        
+        page_needs_render = True
+
     elif L_SMODE:
         current_page_instance.on_long_select()
-        
-    current_page_instance.update_page()
-    _update_battery()
-    display.refresh()
-        
+        page_needs_render = True
+
+    if page_needs_render:
+        current_page_instance.update_page()
+        _update_battery()
+        display.refresh()
+
     time.sleep(0.01)
 
