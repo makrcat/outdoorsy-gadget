@@ -1,14 +1,13 @@
 
 import displayio
 import terminalio
-import time
 import bitmaptools
 from adafruit_display_text import label
 import adafruit_display_text
+from array import array
 
 import math
 
-TIME_BTWN = 1.0
 MAX_SAMPLES = 240
 DATA_RANGE = [10, 30, 60, 120, 240]
 
@@ -20,8 +19,7 @@ def wrap_text(text, width, font):
 class Reading:
     def __init__(self):
         global MAX_SAMPLES
-        self.log = []
-        self.time_log = []
+        self.log = array("f")
         self.read_size = 5
         self.max_samples = MAX_SAMPLES
         self.last_change = None
@@ -29,20 +27,11 @@ class Reading:
     def get_data_log(self):
         return self.log
 
-    def get_time_log(self):
-        return self.time_log
-
     def addReading(self, r):
-        global TIME_BTWN
         
         if len(self.log) == self.max_samples:
-            self.log.pop(0)
-            self.time_log.pop(0)
-            
+            self.log.pop(0)         
         self.log.append(r)
-        
-        # time log
-        self.time_log.append(TIME_BTWN)
 
     def _shouldUpdate(self):
         if len(self.log) < self.read_size:
@@ -73,8 +62,10 @@ class Reading:
         return False
 
     def getReading(self):
-        return self.log[-1] # should have updated before so that it's not empty. you can't get reading if you never updated the log
+        return self.log[-1] 
+        # should have updated before so that it's not empty. you can't get reading if you never updated the log
     
+
 
 class DataStore:
     def __init__(self, sensor):
@@ -103,10 +94,14 @@ class DataStore:
         return self.sensor.sea_level_pressure
 
     def set_setting(self, key, value):
-        if key in self.settings:
-            self.settings[key] = value
-        else:
+        if key not in self.settings:
             raise KeyError("That is not a valid key in settings")
+
+        if key == "interval":
+            value = float(value)
+            self.active_reading = Reading()
+
+        self.settings[key] = value
         
     def get_setting(self, key):
         if key in self.settings:
@@ -248,7 +243,6 @@ class DataStore:
         if metric_name != self.active_metric:
             self.active_metric = metric_name
             self.active_reading.log.clear()
-            self.active_reading.time_log.clear()
             self.active_reading.last_change = None
             self.active_reading = Reading()
     
@@ -375,19 +369,26 @@ class SparkGraph:
         prev_py = None
 
         for x_time, y_val in plot_points:
-            
+
             px = int(1 + (x_time * x_scale))
             py = int((self.height - 2) - ((y_val - rmin) * y_scale))
-          
-            px = max(1, min(px, self.width - 2))
+
             py = max(1, min(py, self.height - 2))
 
             if prev_px is not None:
-                bitmaptools.draw_line(self.bitmap, prev_px, prev_py, px, py, 1)
-            else:
-                self.bitmap[px, py] = 1
+                x1 = max(1, min(prev_px, self.width - 2))
+                x2 = max(1, min(px, self.width - 2))
 
-            prev_px, prev_py = px, py
+                if x1 != x2:
+                    bitmaptools.draw_line(
+                        self.bitmap, x1, prev_py, x2, py, 1
+                    )
+            else:
+                if 1 <= px < self.width - 1:
+                    self.bitmap[px, py] = 1
+
+            prev_px = px
+            prev_py = py
             
 
 class DataGraph:
@@ -395,89 +396,59 @@ class DataGraph:
         
         self.sparkgraph = SparkGraph(xpos, ypos, width, height, group)   
         
-    def _getLastRange(self, data_log, time_log, x_range_recent):
-        """ data log is a bunch of [33.3, 44.4, 55.5] data for say, temperature.
-            now time_log is a bunch of corresponding TIME_BTWN at the time of measurement..
-            data updates in parallel with its "waited-before" seconds in the time log at the same index
-            
-            first get the by_n_seconds counting backwards. all of those
-            [33.3, 55.5, notskipping.notskip, blah blah, latest_temp]
-            [3,    3,    3                  , 3        , 10]
-            
-            
-            and return a thing that's sort of graphable"""
+    def _getLastRange(self, data_log, interval, x_range_recent):
+        total_time = (len(data_log) - 1) * interval
+
+        if total_time <= x_range_recent:
+            return 0, True
+
+        samples_to_show = int(x_range_recent / interval) + 2
+        start_idx = max(0, len(data_log) - samples_to_show)
+
+        return start_idx, False
+
+    def _getPlotPointsAndMinMax(self, data_log, interval, x_range_recent):
+        start_idx, alignLeft = self._getLastRange(
+            data_log, interval, x_range_recent
+        )
         
+        #data_log, interval)
 
-        start_idx = -1 # -1
-        accumulated_time = 0
-        
-        
-        for i in range(len(time_log) - 1, -1, -1):
-            accumulated_time += time_log[i]
-            if accumulated_time >= x_range_recent:
-                start_idx = i #it goes one extra but that's ok
-                break
-             
-        alignLeft = False
-  
-        if start_idx == -1:
-            alignLeft = True
-        else:
-            alignLeft = False
-
-        return start_idx, alignLeft
-
-    def _getPlotPointsAndMinMax(self, data_log, time_log, x_range_recent):
-        # CLAER PAST STUFF
-
-        if not data_log or not time_log:
-            return
-        
-        if len(data_log) != len(time_log):
-            print("why is data log not the same length as time log")
-            return
-
-
-        start_idx, alignLeft = self._getLastRange(data_log, time_log, x_range_recent)
-        if start_idx == -1: start_idx = 0
-            # didnt find a startindex
-        # start idx and forward..
-        
-        # for regular startFromLeft plot points..
         plot_points = []
         new_x_time = 0
-        
-        
-        # everyminus is for offsetting them 
-        everyminus = 0
-        if not alignLeft:
-            total_recent_time = sum(time_log[i] for i in range(start_idx, len(time_log))) # start_idx + 1 // OLDCODE
-            everyminus = total_recent_time - x_range_recent
-            
-            
+
         rmax = float('-inf')
         rmin = float('inf')
-        
-        # GET PLOT POINTS
+
         for i in range(start_idx, len(data_log)):
-        # Force elapsed time for the first point to 0
-            delta_t = 0 if i == start_idx else time_log[i]
-            new_x_time += delta_t
-            plot_points.append((new_x_time - everyminus, data_log[i]))
+            plot_points.append((new_x_time, data_log[i]))
+            new_x_time += interval
+
+            if data_log[i] < rmin:
+                rmin = data_log[i]
+            if data_log[i] > rmax:
+                rmax = data_log[i]
+
+        if not alignLeft:
+            # new_x_time is the next advancement,
+            # like counting 3s, if we were 0 3 6 9, and done
+            # it's now 12. so we have to go back to 9
             
-            if data_log[i] < rmin: rmin = data_log[i]
-            if data_log[i] > rmax: rmax = data_log[i]
-            
-        #if abs(rmin - rmax) < 2.0: #TODO
-         
+            offset = x_range_recent - (new_x_time - interval)
+
+            plot_points = [
+                (x + offset, y)
+                for x, y in plot_points
+            ]
+
         rmin -= 0.2
         rmax += 0.2
-            
+
         return plot_points, (rmin, rmax)
     
-    def draw_the_shit(self, data_log, time_log, x_range_recent):
+    def draw_the_shit(self, data_log, interval, x_range_recent):
         plot_points, (rmin, rmax) = self._getPlotPointsAndMinMax(
-            data_log, time_log, x_range_recent
+            data_log, interval, x_range_recent
         )
 
         self.sparkgraph.draw(plot_points, x_range_recent, rmin, rmax)

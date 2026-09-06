@@ -181,7 +181,7 @@ class TemperaturePage(Page):
         self.group.append(self.description_box)
         
         
-        self.graph_range = 10
+        self.graph_range = 30
         self.graph = DataGraph(xpos=14, ypos=132, width=122, height=90, group=self.group)
         
     def on_show(self):
@@ -210,4 +210,8 @@ class TemperaturePage(Page):
             
     def data_schedule_update(self):
         readings = self.store.getVariableData()
-        self.graph.draw_the_shit(readings.get_data_log(), readings.get_time_log(), self.graph_range)
+        self.graph.draw_the_shit(
+            readings.get_data_log(),
+            self.store.get_setting("interval"),
+            self.graph_range
+        )

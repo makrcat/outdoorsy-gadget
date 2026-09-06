@@ -33,7 +33,7 @@ class Selector(displayio.Group):
     
 
 class NumberSelector(Selector):
-    def __init__(self, x, y, width, height, parent):
+    def __init__(self, x, y, width, height, parent, min=None):
         super().__init__(x=x, y=y, width=width, height=height, parent=parent)
         self.current_val = 0
         
@@ -46,10 +46,16 @@ class NumberSelector(Selector):
         )
         self.append(self.label)
         
+        self.min = min
+        
     def on_select(self):
         self.current_val += 1
         if self.current_val > 9:
-            self.current_val = 0
+            
+            if self.min != None:
+                self.current_val = self.min
+            else:
+                self.current_val = 0
             
         self.label.text = str(self.current_val)
         

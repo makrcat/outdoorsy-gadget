@@ -9,6 +9,7 @@ from Page import *
 from adafruit_display_shapes.line import Line
 from adafruit_display_shapes.rect import Rect
 from mockIC import MockBME680
+import time
 from DashboardPage import DashboardPage
 from TemperaturePage import TemperaturePage
 from PressurePage import PressurePage
@@ -26,7 +27,7 @@ next_button = None
 select_button = None
 
 
-COMPUTER = False
+COMPUTER = True
 
 if COMPUTER:
     import pygame
@@ -322,7 +323,7 @@ while True:
     now = time.monotonic()
     page_needs_render = False
 
-    if now - last_sensor_read >= TIME_BTWN:
+    if now - last_sensor_read >= data_store.get_setting("interval"):
         data_store.update()
         last_sensor_read = now
         current_page_instance.data_schedule_update()
