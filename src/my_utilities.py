@@ -2,19 +2,51 @@
 import displayio
 import terminalio
 import bitmaptools
-from adafruit_display_text import label
-import adafruit_display_text
+from adafruit_display_text import label, wrap_text_to_pixels
 from array import array
 
 import math
 
-MAX_SAMPLES = 240
-DATA_RANGE = [10, 30, 60, 120, 240]
+MAX_SAMPLES = 30
+DATA_RANGE = [10, 30]
 
 def wrap_text(text, width, font):
-    return "\n".join(adafruit_display_text.wrap_text_to_pixels(
+    return "\n".join(wrap_text_to_pixels(
                 text, width, font=font
             ))
+
+MAX_SAMPLES = 20
+DATA_RANGE = [10, 20]
+
+def wrap_text(text, width, font):
+    return "\n".join(wrap_text_to_pixels(text, width, font=font))
+
+class RollingLog:
+    def __init__(self, cols, header: tuple, max_len=5):
+        self.max_len = max_len
+        self.cols = cols
+        self.log = []
+        self.header = header
+
+    def add_entry(self, entry_tuple: tuple):
+        if len(entry_tuple) != self.cols:
+            return
+        if len(self.log) >= self.max_len:
+            self.log.pop(0)
+        self.log.append(entry_tuple)
+
+    def get_row(self, index: int):
+        return self.log[index]
+        
+    def len(self):
+        return len(self.log)
+    
+    def getRows(self):
+        return self.max_len
+    
+    def getCols(self):
+        return self.cols
+
 
 class Reading:
     def __init__(self):
@@ -28,22 +60,22 @@ class Reading:
         return self.log
 
     def addReading(self, r):
-        
         if len(self.log) == self.max_samples:
-            self.log.pop(0)         
+            self.log[:] = self.log[1:] 
         self.log.append(r)
 
     def _shouldUpdate(self):
-        if len(self.log) < self.read_size:
+        log_len = len(self.log)
+        if log_len < self.read_size:
             return False
         
         if self.last_change is None:
-            return True # yeah so there's no error down there vv
+            return True
 
-        samples = self.log[-1 * self.read_size:]
-        
-        mean = sum(samples) / len(samples)
-        latest = samples[-1]
+        start_idx = log_len - self.read_size
+        total = sum(self.log[i] for i in range(start_idx, log_len))
+        mean = total / self.read_size
+        latest = self.log[-1]
             
         if abs(mean - latest) > 0.2 or abs(self.last_change - mean) >= 0.1:
             return True
@@ -62,7 +94,7 @@ class Reading:
         return False
 
     def getReading(self):
-        return self.log[-1] 
+        return self.log[-1]
         # should have updated before so that it's not empty. you can't get reading if you never updated the log
     
 
@@ -74,11 +106,8 @@ class DataStore:
         self.active_reading = Reading()
         
         self.latest_values = {
-            "temperature": 0,
-            "humidity": 0,
-            "pressure": 0,
-            "altitude": 0,
-            "gas_resistance": 0
+            "temperature": 0, "humidity": 0, "pressure": 0,
+            "altitude": 0, "gas_resistance": 0
         }
         
         self.settings = {
@@ -86,6 +115,21 @@ class DataStore:
             "measurement_unit": "m",
             "interval": 3.0,
         }
+        
+        self.rollingLog = RollingLog(3, ("temp", "alt", "aqi"))
+        
+    def logger_add(self, tple):
+        self.rollingLog.add_entry(tple)
+        
+    def logger_get_row(self, r):
+        self.rollingLog.get_row(r)
+        
+    def addLog(self):
+        temp = self.getConvertedVal("temperature")
+        hu = self.getVal("humidity")
+        alt = self.getConvertedVal("altitude")
+        tstuff = f"t:{temp}\nhu:{hu:.1f}"
+        self.logger_add((tstuff, "hi", "hi"))
         
     def set_sea_level(self, val):
         self.sensor.sea_level_pressure = int(val)
@@ -96,30 +140,21 @@ class DataStore:
     def set_setting(self, key, value):
         if key not in self.settings:
             raise KeyError("That is not a valid key in settings")
-
         if key == "interval":
             value = float(value)
             self.active_reading = Reading()
-
         self.settings[key] = value
         
     def get_setting(self, key):
         if key in self.settings:
             return self.settings[key]
-        else:
-            raise KeyError("That is not a valid key in settings")
+        raise KeyError("That is not a valid key in settings")
 
     def getFL(self) -> float:
         temp_c = self.latest_values["temperature"]
         hum = self.latest_values["humidity"]
-
-        # Approximate water vapor pressure (hPa) from temp and humidity
-        # e = (humidity / 100) * 6.105 * exp((17.27 * temp) / (237.7 + temp))
         e = (hum / 100.0) * 6.105 * math.exp((17.27 * temp_c) / (237.7 + temp_c))
-
-        # Steadman's approximation formula: Apparent Temp = T + 0.33 * e - 0.70 * wind - 4.0
         apparent_temp_c = temp_c + (0.33 * e) - 0.70
-            
         return round(apparent_temp_c, 1)
     
     def getAQI(self) -> int:
@@ -129,120 +164,68 @@ class DataStore:
         return 5000
 
     def getPressCat(self):
-        p = self.getVal("pressure") 
-        
-        if p <= 1000:
-            return 0
-        elif p <= 1008:
-            return 1
-        elif p <= 1023:
-            return 2
-        elif p <= 1033:
-            return 3
-        else:
-            return 4
+        p = self.getVal("pressure")
+        if p <= 1000: return 0
+        elif p <= 1008: return 1
+        elif p <= 1023: return 2
+        elif p <= 1033: return 3
+        else: return 4
         
     def log10(self, n):
-        result = math.log(n) / math.log(10)
-        return result
+        return math.log(n) / math.log(10)
         
     def getBoilingPoint(self):
         p_mmhg = self.latest_values["pressure"] * 0.750062
-    
-        A = 8.07131
-        B = 1730.63
-        C = 233.426
-        
-        boiling_temp_c = (B / (A - self.log10(p_mmhg))) - C
-        return boiling_temp_c
-        
+        A, B, C = 8.07131, 1730.63, 233.426
+        return (B / (A - self.log10(p_mmhg))) - C
         
     def getDewPoint(self):
-        
         temp_c = self.latest_values["temperature"]
         rh = self.latest_values["humidity"]
-
-        a = 17.625
-        b = 243.04 
-        
-
+        a, b = 17.625, 243.04
         alpha = ((a * temp_c) / (b + temp_c)) + math.log(rh / 100.0)
-        dew_point_c = (b * alpha) / (a - alpha)
-        return dew_point_c
+        return (b * alpha) / (a - alpha)
         
     def getVal(self, metric):
-        if metric == 'gas_resistance':
-            return self.latest_values["gas_resistance"]
-        elif metric == 'altitude':
-            return self.latest_values["altitude"]
-        elif metric == 'pressure':
-            return self.latest_values["pressure"]
-        elif metric == 'humidity':
-            return self.latest_values["humidity"]
-        elif metric == 'temperature':
-            return self.latest_values["temperature"]
-        
-        elif metric == 'aqi':
-            return self.getAQI()
-        elif metric == 'eCO2':
-            return self.geteCO2()
-        elif metric == 'dewpoint':
-            return self.getDewPoint()
-        elif metric == 'boiling_point':
-            return self.getBoilingPoint()
-        elif metric == 'feels_like':
-            return self.getFL()
-        elif metric == 'pressure_category':
-            return self.getPressCat()
-        
+        if metric in self.latest_values:
+            return self.latest_values[metric]
+        elif metric == 'aqi': return self.getAQI()
+        elif metric == 'eCO2': return self.geteCO2()
+        elif metric == 'dewpoint': return self.getDewPoint()
+        elif metric == 'boiling_point': return self.getBoilingPoint()
+        elif metric == 'feels_like': return self.getFL()
+        elif metric == 'pressure_category': return self.getPressCat()
 
     def getConvertedVal(self, metric) -> str:
         val = self.getVal(metric)
-        
-        
-        ## FT / M conversion
         if metric == 'altitude':
             if self.settings["measurement_unit"] == "ft":
                 return round(val * 3.28084, 1)
             return round(val, 1)
-        
-        
-        ## F / C conversion
         elif metric in ['temperature', 'feels_like', 'dewpoint', 'boiling_point']:
-            if self.settings["temperature_unit"] == "F": 
-                f_val = val * 9/5 + 32
-                return round(f_val, 1)
+            if self.settings["temperature_unit"] == "F":
+                return round(val * 9/5 + 32, 1)
             return round(val, 1)
-        
-        else:
-            return val
-        
-        
-        
-        
+        return val
 
     def update(self) -> None:
         try:
             offset = -4
-
             self.latest_values["temperature"] = self.sensor.temperature + offset
             self.latest_values["humidity"] = self.sensor.relative_humidity
             self.latest_values["pressure"] = self.sensor.pressure
             self.latest_values["altitude"] = self.sensor.altitude
             self.latest_values["gas_resistance"] = self.sensor.gas
 
-
-            active_val = self.getVal(self.active_metric)
-            self.active_reading.addReading(active_val)
-            
+            if self.active_metric is not None:
+                active_val = self.getVal(self.active_metric)
+                self.active_reading.addReading(active_val)
         except Exception as e:
             print("Sensor read error:", e)
        
-                    
     def set_active_metric(self, metric_name):
         if metric_name != self.active_metric:
             self.active_metric = metric_name
-            self.active_reading.log.clear()
             self.active_reading.last_change = None
             self.active_reading = Reading()
     
@@ -261,95 +244,60 @@ class SparkGraph:
         self.width = width
         self.height = height
         self.group = group
-        self.polygon = None
-        
 
         self.palette = displayio.Palette(3)
         self.palette[0] = 0x000000
         self.palette[1] = 0xFFFFFF
         self.palette[2] = 0x444444
             
-            
         self.ui_group = displayio.Group(x=xpos, y=ypos)
         self.group.append(self.ui_group)
-
 
         self.bitmap = displayio.Bitmap(width, height, len(self.palette))
         self.tile_grid = displayio.TileGrid(self.bitmap, pixel_shader=self.palette)
         self.ui_group.append(self.tile_grid)
 
         self.max_label = label.Label(terminalio.FONT, text="", color=0xFFFFFF)
-        self.max_label.x = 4
-        self.max_label.y = 7
+        self.max_label.x, self.max_label.y = 4, 7
         self.ui_group.append(self.max_label)
 
         self.min_label = label.Label(terminalio.FONT, text="", color=0xFFFFFF)
-        self.min_label.x = 4
-        self.min_label.y = height - 10
+        self.min_label.x, self.min_label.y = 4, height - 10
         self.ui_group.append(self.min_label)
         
         self.leftLabel = label.Label(terminalio.FONT, text="t-60s", color=0xFFFFFF)
-        self.leftLabel.x = 0
-        self.leftLabel.y = height + 4
+        self.leftLabel.x, self.leftLabel.y = 0, height + 4
         self.ui_group.append(self.leftLabel)
         
         self.rightLabel = label.Label(terminalio.FONT, text="t-0", color=0xFFFFFF)
-        self.rightLabel.x = width - 18
-        self.rightLabel.y = height + 4
+        self.rightLabel.x, self.rightLabel.y = width - 18, height + 4
         self.ui_group.append(self.rightLabel)
         
         self._draw_axis()
 
     def _draw_rectangle(self, x, y, width, height, color_index):
-        # Top edge
         bitmaptools.draw_line(self.bitmap, x, y, x + width - 1, y, color_index)
-        # Right edge
         bitmaptools.draw_line(self.bitmap, x + width - 1, y, x + width - 1, y + height - 1, color_index)
-        # Bottom edge
-
-        bitmaptools.fill_region(
-            self.bitmap, 
-            x,
-            (y + height - 3),
-            x + width, 
-            y + height,
-            color_index
-        )
-                
-        bitmaptools.fill_region(
-            self.bitmap, 
-            x,
-            y,
-            x + 3,
-            y + height,
-            color_index
-        )
-        
+        bitmaptools.fill_region(self.bitmap, x, (y + height - 3), x + width, y + height, color_index)
+        bitmaptools.fill_region(self.bitmap, x, y, x + 3, y + height, color_index)
 
     def _draw_grid(self, ylines, xlines):
-
         wunit = int(self.width / (xlines + 1))
         hunit = int(self.height / (ylines + 1))
-
-        for i in range(1, xlines + 1 + 1):
+        for i in range(1, xlines + 2):
             bitmaptools.draw_line(self.bitmap, wunit * i, 0, wunit * i, self.height, 2)
-
-        for j in range(1, ylines + 1 + 1):
+        for j in range(1, ylines + 2):
             bitmaptools.draw_line(self.bitmap, 0, hunit * j, self.width, hunit * j, 2)
-
-                
+            
     def _draw_axis(self):
         self.bitmap.fill(0)
-        self._draw_grid(2,3 )
+        self._draw_grid(2, 3)
         self._draw_rectangle(0, 0, self.width, self.height, 1)
-
-   
         
     def updateLeftLabel(self, inc):
-        self.leftLabel.text = "t-"+str(inc)+"s"
+        self.leftLabel.text = f"t-{inc}s"
 
     def draw(self, plot_points, x_range_recent, rmin, rmax):
-        
         self.max_label.text = str(int(rmax))
         self.min_label.text = str(int(rmin))
         self.updateLeftLabel(x_range_recent)
@@ -369,20 +317,15 @@ class SparkGraph:
         prev_py = None
 
         for x_time, y_val in plot_points:
-
             px = int(1 + (x_time * x_scale))
             py = int((self.height - 2) - ((y_val - rmin) * y_scale))
-
             py = max(1, min(py, self.height - 2))
 
             if prev_px is not None:
                 x1 = max(1, min(prev_px, self.width - 2))
                 x2 = max(1, min(px, self.width - 2))
-
                 if x1 != x2:
-                    bitmaptools.draw_line(
-                        self.bitmap, x1, prev_py, x2, py, 1
-                    )
+                    bitmaptools.draw_line(self.bitmap, x1, prev_py, x2, py, 1)
             else:
                 if 1 <= px < self.width - 1:
                     self.bitmap[px, py] = 1
@@ -393,65 +336,47 @@ class SparkGraph:
 
 class DataGraph:
     def __init__(self, xpos, ypos, width, height, group):
-        
         self.sparkgraph = SparkGraph(xpos, ypos, width, height, group)   
         
     def _getLastRange(self, data_log, interval, x_range_recent):
         total_time = (len(data_log) - 1) * interval
-
         if total_time <= x_range_recent:
             return 0, True
-
         samples_to_show = int(x_range_recent / interval) + 2
         start_idx = max(0, len(data_log) - samples_to_show)
-
         return start_idx, False
 
     def _getPlotPointsAndMinMax(self, data_log, interval, x_range_recent):
-        start_idx, alignLeft = self._getLastRange(
-            data_log, interval, x_range_recent
-        )
-        
-        #data_log, interval)
-
+        start_idx, alignLeft = self._getLastRange(data_log, interval, x_range_recent)
         plot_points = []
         new_x_time = 0
-
         rmax = float('-inf')
         rmin = float('inf')
 
         for i in range(start_idx, len(data_log)):
-            plot_points.append((new_x_time, data_log[i]))
+            val = data_log[i]
+            plot_points.append((new_x_time, val))
             new_x_time += interval
-
-            if data_log[i] < rmin:
-                rmin = data_log[i]
-            if data_log[i] > rmax:
-                rmax = data_log[i]
+            if val < rmin: rmin = val
+            if val > rmax: rmax = val
 
         if not alignLeft:
-            # new_x_time is the next advancement,
-            # like counting 3s, if we were 0 3 6 9, and done
-            # it's now 12. so we have to go back to 9
-            
             offset = x_range_recent - (new_x_time - interval)
-
-            plot_points = [
-                (x + offset, y)
-                for x, y in plot_points
-            ]
+  
+            plot_points = [(x + offset, y) for x, y in plot_points]
 
         rmin -= 0.2
         rmax += 0.2
-
         return plot_points, (rmin, rmax)
     
     def draw_the_shit(self, data_log, interval, x_range_recent):
-        plot_points, (rmin, rmax) = self._getPlotPointsAndMinMax(
-            data_log, interval, x_range_recent
-        )
-
+        plot_points, (rmin, rmax) = self._getPlotPointsAndMinMax(data_log, interval, x_range_recent)
         self.sparkgraph.draw(plot_points, x_range_recent, rmin, rmax)
+        
+        
+        
+        
+        
     
 class tempGradientObject:
     def __init__(self, xpos, ypos, width, height, pc, colorz, group, orientation="vertical"):

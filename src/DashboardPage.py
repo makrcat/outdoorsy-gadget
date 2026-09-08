@@ -2,9 +2,8 @@ import displayio, terminalio
 from my_utilities import *
 from Page import Page
 from adafruit_display_shapes.rect import Rect
-from adafruit_display_shapes.line import Line
 from adafruit_display_text import label
-from fonts import PRAGATI_42, PRAGATI_22
+from fonts import PRAGATI_22
 
 
 class TempBox(displayio.Group):
@@ -14,12 +13,12 @@ class TempBox(displayio.Group):
         self.append(Rect(0, 0, 122, 84, outline=0xFFFFFF))
         
         self.temp_label = label.Label(
-            PRAGATI_42, 
+            PRAGATI_22, 
             text="--.-", 
             color=0xFFFFFF, 
             anchor_point=(0.0, 0.0),
             anchored_position=(20, 12), 
-            scale=1
+            scale=2
         )
         self.hum_label = label.Label(
             PRAGATI_22, 
@@ -54,12 +53,12 @@ class GasBox(displayio.Group):
         self.append(Rect(0, 0, 108, 90, outline=0xFFFFFF))
         
         self.aqi_label = label.Label(
-            PRAGATI_42, 
+            PRAGATI_22, 
             text="--.-", 
             color=0xFFFFFF, 
             anchor_point=(0.0, 0.0),
             anchored_position=(10, 12),
-            scale=1
+            scale=2
         )
 
         
@@ -93,12 +92,12 @@ class AltBox(displayio.Group):
         super().__init__(x=x, y=y)
 
         self.alt_label = label.Label(
-            PRAGATI_42,
+            PRAGATI_22,
             text="---", 
             color=0xFFFFFF,
             anchor_point=(0.5, 0.0),
             anchored_position=(42, 12 ), 
-            scale=1
+            scale=2
             )
         self.press_label = label.Label(
             PRAGATI_22, 
@@ -140,20 +139,6 @@ class AltBox(displayio.Group):
         self.append(tile_grid)
 
     def update(self, store):
-      
-        '''
-        alt_string = f"{store.getConvertedVal('altitude'):.0f}"
-        
-        # update font if needed
-        
-        if len(alt_string) >= 4 and self.alt_label.font != PRAGATI_22:
-            self.alt_label.font = PRAGATI_22
-            self.alt_label.scale = 2
-        elif len(alt_string) < 4 and self.alt_label.font != PRAGATI_42:
-            self.alt_label.font = PRAGATI_42
-            self.alt_label.scale = 1
-        '''  
-            
         self.alt_label.text = f"{store.getConvertedVal("altitude"):.0f}" + store.get_setting("measurement_unit")
         self.press_label.text = f"{store.getVal("pressure"):.0f} hPa"
         
@@ -185,13 +170,13 @@ class DashboardPage(Page):
    
 
     def on_show(self):
-        pass
+        self.store.set_active_metric(None)
 
     def on_short_select(self):
         pass
 
     def on_long_select(self):
-        pass
+        self.store.addLog()
 
     def on_short_next(self):
         pass

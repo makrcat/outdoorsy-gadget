@@ -268,7 +268,7 @@ class SettingsPage(Page):
         ]
         
     def on_show(self):
-        pass
+        self.store.set_active_metric(None)
     
     def on_long_select(self):
         self.is_editing = not self.is_editing

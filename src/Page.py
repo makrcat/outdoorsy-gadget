@@ -1,6 +1,6 @@
 import displayio, terminalio
 from adafruit_display_text import label
-from fonts import NINE
+from fonts import NINE_REG
 
 class Page():
     def __init__(self, header_text=""):
@@ -8,7 +8,7 @@ class Page():
         self.group = displayio.Group(x=0, y=0)
         self.in_select_mode = False
 
-        self.header_label = label.Label(NINE, text=header_text, color=0xFFFFFF, x=5, y=8)
+        self.header_label = label.Label(NINE_REG, text=header_text, color=0xFFFFFF, x=5, y=8)
         self.group.append(self.header_label)
     
     def on_show(self):

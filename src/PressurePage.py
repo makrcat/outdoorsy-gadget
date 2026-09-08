@@ -1,19 +1,17 @@
-import displayio, terminalio
+import displayio
 from my_utilities import *
 from Page import Page
-from adafruit_display_shapes.line import Line
-from adafruit_display_shapes.rect import Rect
+from theme import SMALL_BOX_BITMAP, DESC_BOX_BITMAP, BOX_PALETTE
 from adafruit_display_text import label
-#TODO
-
-from fonts import NINE, NINE_REG, SUBTEN, PRAGATI_54
+from fonts import NINE_REG, SUBTEN, PRAGATI_22
+import gc
 
 class PressureArea(displayio.Group):
     def __init__(self, x, y):
         super().__init__(x=x, y=y)
         
-        self.append(Rect(0, 0, 68, 42, fill=0x444444))
-        self.append(Rect(0, 0, 68, 42, outline=0xFFFFFF))
+        self.bg_grid = displayio.TileGrid(SMALL_BOX_BITMAP, pixel_shader=BOX_PALETTE)
+        self.append(self.bg_grid)
         
         self.append(label.Label(NINE_REG, text="Pressur", color=0xFF9952, anchor_point=(0.0, 0.0), 
                                         anchored_position=(4, 0), scale=1))
@@ -22,7 +20,6 @@ class PressureArea(displayio.Group):
                                         anchored_position=(4, 16), scale=1)
         self.append(self.pressure_label)
                 
-
     def update(self, store):
         self.pressure_label.text = f"{store.getVal('pressure'):.1f}"
 
@@ -30,9 +27,8 @@ class PressureArea(displayio.Group):
 class BoilBox(displayio.Group):
     def __init__(self, x, y):
         super().__init__(x=x, y=y)
-        self.append(Rect(0, 0, 68, 42, fill=0x444444))
-        self.append(Rect(0, 0, 68, 42, outline=0xFFFFFF))
-        
+        self.bg_grid = displayio.TileGrid(SMALL_BOX_BITMAP, pixel_shader=BOX_PALETTE)
+        self.append(self.bg_grid)
         
         self.append(label.Label(NINE_REG, text="Boiling", color=0x52E5FF, anchor_point=(0.0, 0.0), 
                                                 anchored_position=(4, 0), scale=1))
@@ -50,13 +46,15 @@ class HILOBox(displayio.Group):
     def __init__(self, x, y):
         super().__init__(x=x, y=y)
 
-        self.append(Rect(0, 0, 68, 42, fill=0x444444))
-        self.append(Rect(0, 0, 68, 42, outline=0xFFFFFF))
+        self.bg_grid = displayio.TileGrid(SMALL_BOX_BITMAP, pixel_shader=BOX_PALETTE)
+        self.append(self.bg_grid)
+                
+                
         self.append(label.Label(NINE_REG, text="PsrLvl", color=0xFF7DE5, anchor_point=(0.0, 0.0), 
                                              anchored_position=(4, 0), scale=1))
         
-        self.HILO_label = label.Label(NINE_REG, text="----", color=0xFF7DE5,anchor_point=(0.0, 0.0), 
-                                     anchored_position=(4, 16),scale=1)
+        self.HILO_label = label.Label(NINE_REG, text="----", color=0xFF7DE5, anchor_point=(0.0, 0.0), 
+                                     anchored_position=(4, 16), scale=1)
         self.append(self.HILO_label)
 
     def update(self, store):
@@ -64,69 +62,57 @@ class HILOBox(displayio.Group):
         self.HILO_label.text = prsr[store.getConvertedVal('pressure_category')]
 
 
-pinfo = {
-    0:["Severe storm", "Very unstable weather! Severe storms and winds are imminent."],
-    1:["Unstable weather", "Unstable weather. Be ready for light wind and rain!"],
-    2:["Regular weather", "Very regular and fair weather. Expect clouds and some sun."],
-    3:["Clear skies", "Stable weather. Expect dry air, clear skies, and sunshine."],
-    4:["Extreme high", "Stable weather, but intense cold or heat depending on season."]
-}
+pinfo = [
+    ("Stormy", "Very unstable weather! Severe storms and winds are imminent."),
+    ("Unstable", "Unstable weather. Be ready for light wind and rain!"),
+    ("Regular", "Very regular and fair weather. Expect clouds and some sun."),
+    ("Clear", "Stable weather. Expect dry air, clear skies, and sunshine."),
+    ("Sky high", "Stable weather, but intense cold or heat depending on season.")
+]
         
 class DescriptionBox(displayio.Group):
     def __init__(self, x, y):
         super().__init__(x=x, y=y)
-        self.append(Rect(0, 0, 86, 90, fill=0x444444))
-        self.append(Rect(0, 0, 86, 90, outline=0xFFFFFF))
+        self.bg_grid = displayio.TileGrid(DESC_BOX_BITMAP, pixel_shader=BOX_PALETTE)
+        self.append(self.bg_grid)
      
         self.header_label = label.Label(
-            NINE, 
-            text="----", 
-            color=0xEFBA0F, 
-            line_spacing=0.8,
-            anchor_point=(0.0, 0.0), 
-            anchored_position=(5, 3), 
-            scale=1
+            NINE_REG, text="----", color=0xEFBA0F, line_spacing=0.8,
+            anchor_point=(0.0, 0.0), anchored_position=(5, 3), scale=1
         )
         
         self.description_label = label.Label(
-            SUBTEN, 
-            text=wrap_text("Loading", 82, SUBTEN), 
-            line_spacing=1.0,
-            color=0xFFFFFF, 
-            anchor_point=(0.0, 0.0), 
-            anchored_position=(5, 35), 
-            scale=1
+            SUBTEN, text=wrap_text("Loading", 80, SUBTEN), line_spacing=1.0,
+            color=0xFFFFFF, anchor_point=(0.0, 0.0), anchored_position=(5, 25), scale=1
         )
         
         self.append(self.header_label)
         self.append(self.description_label)
         
+
+        self.last_cat = None
+        
     def update(self, store):
         cat = store.getVal("pressure_category")
-        header = wrap_text(pinfo[cat][0], 82, NINE)
-        desc = wrap_text(pinfo[cat][1], 82, SUBTEN)
         
-        self.header_label.text = header
-        self.description_label.text = desc
-    
-        
-        
-        
-        
-#ff7afc
-
+        # only re-wrap text if the pressure category actually changes
+        if cat != self.last_cat:
+            
+            gc.collect()
+            
+            self.header_label.text = pinfo[cat][0]
+            self.description_label.text = wrap_text(pinfo[cat][1], 82, SUBTEN)
+            self.last_cat = cat
 
 
 class AltitudeArea(displayio.Group):
     def __init__(self, x, y):
         super().__init__(x=x, y=y)
-
-        self.append(Rect(0, 0, 10, 10, fill=0x444444))
-        self.altitude_label = label.Label(PRAGATI_54, text="--", color=0xFFFFFF, anchor_point=(0.0, 0.0), 
-                                     anchored_position=(0, 4), scale=1)
+        
+        self.altitude_label = label.Label(PRAGATI_22, text="--", color=0xFFFFFF, anchor_point=(0.0, 0.0), 
+                                     anchored_position=(0, 6), scale=2)
         self.append(self.altitude_label)
         
-
     def update(self, store):
         self.altitude_label.text = f"{store.getConvertedVal('altitude'):.1f}" + store.get_setting("measurement_unit")
 
@@ -151,7 +137,7 @@ class PressurePage(Page):
         self.HILO_box = HILOBox(x=160, y=84)
         self.group.append(self.HILO_box)
         
-        self.graph_range = 30
+        self.graph_range = 10
         self.graph = DataGraph(xpos=14, ypos=132, width=122, height=90, group=self.group)
     
     def on_show(self):
@@ -175,7 +161,7 @@ class PressurePage(Page):
         self.HILO_box.update(self.store)
         self.description_box.update(self.store)
         self.boil_box.update(self.store)
-
+        
     def data_schedule_update(self):
         readings = self.store.getVariableData()
         self.graph.draw_the_shit(

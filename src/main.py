@@ -1,6 +1,5 @@
 import displayio, digitalio 
 from my_utilities import *
-from fonts import SUBTEN
 
 # import board, busio
 from Page import *
@@ -28,6 +27,7 @@ select_button = None
 
 
 COMPUTER = True
+
 
 if COMPUTER:
     import pygame
@@ -81,7 +81,7 @@ else:
         width=240, 
         height=240, 
         rowstart=80,
-        rotation=0
+        rotation=180
     )
 
 
@@ -182,7 +182,7 @@ pages = [
     SettingsPage,
 ]
 
-page_index = 4
+page_index = 1
 current_page_instance = None
 
 
@@ -314,6 +314,8 @@ def handle_buttons_modes_computer():
 
 
 
+last_gc_time = 0
+GC_INTERVAL = 1.0
 
 while True:
 
@@ -321,10 +323,16 @@ while True:
     else: handle_buttons_modes()
 
     now = time.monotonic()
-    page_needs_render = False
+
+    if now - last_gc_time > GC_INTERVAL:
+        #print("Free RAM:", gc.mem_free(), "bytes")
+        gc.collect()
+        last_gc_time = now
+    
 
     if now - last_sensor_read >= data_store.get_setting("interval"):
         data_store.update()
+        
         last_sensor_read = now
         current_page_instance.data_schedule_update()
         page_needs_render = True
@@ -347,5 +355,5 @@ while True:
         _update_battery()
         display.refresh()
 
-    time.sleep(0.01)
+    time.sleep(0.05)
 
