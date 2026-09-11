@@ -3,7 +3,7 @@ from my_utilities import *
 from Page import Page
 from adafruit_display_shapes.rect import Rect
 from adafruit_display_text import label
-from fonts import PRAGATI_22
+from fonts import PRAGATI_22, PRAGATI_42
 
 
 class TempBox(displayio.Group):
@@ -13,12 +13,12 @@ class TempBox(displayio.Group):
         self.append(Rect(0, 0, 122, 84, outline=0xFFFFFF))
         
         self.temp_label = label.Label(
-            PRAGATI_22, 
+            PRAGATI_42, 
             text="--.-", 
             color=0xFFFFFF, 
             anchor_point=(0.0, 0.0),
             anchored_position=(20, 12), 
-            scale=2
+            scale=1
         )
         self.hum_label = label.Label(
             PRAGATI_22, 
@@ -36,15 +36,25 @@ class TempBox(displayio.Group):
         self.append(Rect(0, 0, 12, 84, outline=0xFFFFFF))
         
         # Axis labels
-        self.append(label.Label(terminalio.FONT, text='100', color=0xFFFFFF, x=-5, y=-6, scale=1))
+        self.temp_top_label = label.Label(terminalio.FONT, text='x', color=0xFFFFFF, anchor_point = (0.5, 0.5),
+                                          anchored_position=(5, -6), scale=1)
+        self.append(self.temp_top_label)
         self.append(label.Label(terminalio.FONT, text='0', color=0xFFFFFF, x=4, y=76, scale=1))
+        
+        self.last_temp_unit = None
 
     def update(self, store):
         temp_con = store.getConvertedVal("temperature")
-        self.temp_label.text = f"{temp_con:.1f}"+ store.get_setting("temperature_unit")
+        temp_unit = store.get_setting("temperature_unit")
+        self.temp_label.text = f"{temp_con:.1f}"+ temp_unit
         self.hum_label.text = f"{store.getVal("humidity"):.1f}% hu"
         
-        self.gradient.update(temp_con / 100)
+        max = 100 if temp_unit == 'F' else 40
+        self.gradient.update(temp_con / max)
+        
+        if self.last_temp_unit != temp_unit:
+            self.temp_top_label.text = str(max)
+            self.last_temp_unit = temp_unit
 
 class GasBox(displayio.Group):
     def __init__(self, x, y):
@@ -53,12 +63,12 @@ class GasBox(displayio.Group):
         self.append(Rect(0, 0, 108, 90, outline=0xFFFFFF))
         
         self.aqi_label = label.Label(
-            PRAGATI_22, 
+            PRAGATI_42, 
             text="--.-", 
             color=0xFFFFFF, 
             anchor_point=(0.0, 0.0),
             anchored_position=(10, 12),
-            scale=2
+            scale=1
         )
 
         
@@ -92,12 +102,12 @@ class AltBox(displayio.Group):
         super().__init__(x=x, y=y)
 
         self.alt_label = label.Label(
-            PRAGATI_22,
+            PRAGATI_42,
             text="---", 
             color=0xFFFFFF,
             anchor_point=(0.5, 0.0),
             anchored_position=(42, 12 ), 
-            scale=2
+            scale=1
             )
         self.press_label = label.Label(
             PRAGATI_22, 

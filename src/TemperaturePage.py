@@ -2,7 +2,7 @@ import displayio
 from my_utilities import *
 from Page import Page
 from adafruit_display_text import label
-from fonts import PRAGATI_22, NINE_REG,SUBTEN
+from fonts import PRAGATI_54, PRAGATI_42, NINE,SUBTEN, NINE_BOLD
 import gc
 from theme import SMALL_BOX_BITMAP, DESC_BOX_BITMAP, BOX_PALETTE
 
@@ -13,9 +13,9 @@ class HumidityBox(displayio.Group):
         self.bg_grid = displayio.TileGrid(SMALL_BOX_BITMAP, pixel_shader=BOX_PALETTE)
         self.append(self.bg_grid)
         
-        self.append(label.Label(NINE_REG, text="Humid:", color=0x52E5FF, anchor_point=(0.0, 0.0), anchored_position=(4, 0), scale=1))
+        self.append(label.Label(NINE, text="Humid:", color=0x52E5FF, anchor_point=(0.0, 0.0), anchored_position=(4, 0), scale=1))
         
-        self.hum_label = label.Label(NINE_REG, text="--%", color=0x52E5FF, anchor_point=(0.0, 0.0), anchored_position=(4, 16), scale=1)
+        self.hum_label = label.Label(NINE, text="--%", color=0x52E5FF, anchor_point=(0.0, 0.0), anchored_position=(4, 16), scale=1)
         self.append(self.hum_label)
 
     def update(self, store):
@@ -28,9 +28,9 @@ class DewBox(displayio.Group):
         self.bg_grid = displayio.TileGrid(SMALL_BOX_BITMAP, pixel_shader=BOX_PALETTE)
         self.append(self.bg_grid)
         
-        self.append(label.Label(NINE_REG, text="Dew pt:", color=0xA8FFA3, anchor_point=(0.0, 0.0), anchored_position=(4, 0), scale=1))
+        self.append(label.Label(NINE, text="Dew pt:", color=0xA8FFA3, anchor_point=(0.0, 0.0), anchored_position=(4, 0), scale=1))
         
-        self.dew_label = label.Label(NINE_REG, text="--C", color=0xA8FFA3, anchor_point=(0.0, 0.0), anchored_position=(4, 16), scale=1)
+        self.dew_label = label.Label(NINE, text="--C", color=0xA8FFA3, anchor_point=(0.0, 0.0), anchored_position=(4, 16), scale=1)
         self.append(self.dew_label)
 
     def update(self, store):
@@ -44,9 +44,9 @@ class FLBox(displayio.Group):
         self.append(self.bg_grid)
                 
                 
-        self.append(label.Label(NINE_REG, text="Feels:", color=0xFF7DE5, anchor_point=(0.0, 0.0), anchored_position=(4, 0), scale=1))
+        self.append(label.Label(NINE, text="Feels:", color=0xFF7DE5, anchor_point=(0.0, 0.0), anchored_position=(4, 0), scale=1))
         
-        self.FL_label = label.Label(NINE_REG, text="--C", color=0xFF7DE5, anchor_point=(0.0, 0.0), anchored_position=(4, 16), scale=1)
+        self.FL_label = label.Label(NINE, text="--C", color=0xFF7DE5, anchor_point=(0.0, 0.0), anchored_position=(4, 16), scale=1)
         self.append(self.FL_label)
 
     def update(self, store):
@@ -57,7 +57,7 @@ class TempArea(displayio.Group):
     def __init__(self, x, y):
         super().__init__(x=x, y=y)
         
-        self.temp_label = label.Label(PRAGATI_22, text="--", color=0xFFFFFF, anchor_point=(0.0, 0.0), anchored_position=(0, 6), scale=2)
+        self.temp_label = label.Label(PRAGATI_54, text="--", color=0xFFFFFF, anchor_point=(0.0, 0.0), anchored_position=(0, 6), scale=1)
         self.append(self.temp_label)
 
     def update(self, store):
@@ -68,7 +68,7 @@ class TamagotchiArea(displayio.Group):
     def __init__(self, x, y):
         super().__init__(x=x, y=y)
         
-        self.emoticon_label = label.Label(PRAGATI_22, text="(>_<)", color=0xFFFFFF, anchor_point=(0.0, 0.0), anchored_position=(0, 4), scale=2)
+        self.emoticon_label = label.Label(PRAGATI_42, text="(>_<)", color=0xFFFFFF, anchor_point=(0.0, 0.0), anchored_position=(0, 4), scale=1)
         self.append(self.emoticon_label)
 
     def update(self, store):
@@ -85,11 +85,11 @@ def weather_cat(temp):
 
 pinfo = [
     ("Freezing", "Dangerously cold, wear many layers of clothes."),
-    ("Cold", "Cold weather, watch for wind! Drink some warm water."),
-    ("Cool", "Crisp and refreshing weather, and a jacket will do."),
-    ("Nice", "It's comfortable weather, good for strolling outdoors."),
-    ("Hot!", "It's very hot, make sure to drink lots of water!"), 
-    ("Scorching", "Risk of heat stroke, try to stay in the shade or inside.")
+    ("Cold Weather", "Cold weather, watch for wind! Drink some warm water."),
+    ("Cool Weather", "Crisp and refreshing weather, a jacket will do."),
+    ("Nice Weather", "It's comfortable weather, good for strolling outdoors."),
+    ("Very hot", "It's very hot, make sure to drink lots of water!"), 
+    ("Sweltering", "Risk of heat stroke, try to stay in the shade or inside.")
 ]
 
 
@@ -100,13 +100,13 @@ class DescriptionBox(displayio.Group):
         self.append(self.bg_grid)
      
         self.header_label = label.Label(
-            NINE_REG, text="----", color=0xEFBA0F, line_spacing=0.8,
+            NINE_BOLD, text="----", color=0xEFBA0F, line_spacing=0.8,
             anchor_point=(0.0, 0.0), anchored_position=(5, 3), scale=1
         )
         
         self.description_label = label.Label(
-            SUBTEN, text="Loading", line_spacing=1.0,
-            color=0xFFFFFF, anchor_point=(0.0, 0.0), anchored_position=(5, 25), scale=1
+            SUBTEN, text="Loading", line_spacing=1.05,
+            color=0xFFFFFF, anchor_point=(0.0, 0.0), anchored_position=(5, 30), scale=1
         )
         
         self.append(self.header_label)
@@ -122,8 +122,12 @@ class DescriptionBox(displayio.Group):
         if cat != self.last_cat:
             gc.collect() 
             
-            self.header_label.text = pinfo[cat][0]
+            self.header_label.text = wrap_text(pinfo[cat][0], 82, NINE_BOLD)
+            
+            descy = wrap_pos(self.header_label.text, 25, 35)
             self.description_label.text = wrap_text(pinfo[cat][1], 82, SUBTEN)
+            
+            self.description_label.anchored_position = (5, descy)
             self.last_cat = cat
 
 
@@ -132,7 +136,7 @@ class TemperaturePage(Page):
         super().__init__(header_text="Temperature")
         self.store = store
 
-        self.temp_box = TempArea(x=14, y=31)
+        self.temp_box = TempArea(x=14, y=28)
         self.group.append(self.temp_box)
         self.tamagotchi_box = TamagotchiArea(x=150, y=31)
         self.group.append(self.tamagotchi_box)
@@ -147,17 +151,22 @@ class TemperaturePage(Page):
         self.description_box = DescriptionBox(x=142, y=132)
         self.group.append(self.description_box)
         
-        self.graph_range = 10
+        self.graph_range = 15
         self.graph = DataGraph(xpos=14, ypos=132, width=122, height=90, group=self.group)
         
     def on_show(self):
-        self.store.set_active_metric("temperature")
+        self.store.set_active_metric("temperature", self.graph_range)
 
     def on_short_select(self):
         global DATA_RANGE
         current_index = DATA_RANGE.index(self.graph_range)
         next_index = (current_index + 1) % len(DATA_RANGE)
+        
+        # update to the next range first
         self.graph_range = DATA_RANGE[next_index]
+        
+        # rsize the active reading 
+        self.store.resize_active_reading(self.graph_range)
 
     def on_long_select(self):
         pass
@@ -178,5 +187,5 @@ class TemperaturePage(Page):
         self.graph.draw_the_shit(
             readings.get_data_log(),
             self.store.get_setting("interval"),
-            self.graph_range
+            readings.max_samples,
         )

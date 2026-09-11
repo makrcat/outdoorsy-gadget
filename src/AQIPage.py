@@ -2,7 +2,7 @@ import displayio
 from my_utilities import *
 from Page import Page
 from adafruit_display_text import label
-from fonts import NINE_REG, SUBTEN, PRAGATI_22
+from fonts import NINE, SUBTEN, PRAGATI_54, NINE_BOLD
 from theme import SMALL_BOX_BITMAP, DESC_BOX_BITMAP, BOX_PALETTE
 import gc
 
@@ -13,10 +13,10 @@ class eCO2(displayio.Group):
         self.bg_grid = displayio.TileGrid(SMALL_BOX_BITMAP, pixel_shader=BOX_PALETTE)
         self.append(self.bg_grid)
                 
-        self.append(label.Label(NINE_REG, text="eCO2", color=0x52E5FF, anchor_point=(0.0, 0.0), 
+        self.append(label.Label(NINE, text="eCO2", color=0x52E5FF, anchor_point=(0.0, 0.0), 
                                      anchored_position=(4, 0), scale=1))
         
-        self.eCO2_label = label.Label(NINE_REG, text="--", color=0x52E5FF, anchor_point=(0.0, 0.0), 
+        self.eCO2_label = label.Label(NINE, text="--", color=0x52E5FF, anchor_point=(0.0, 0.0), 
                                      anchored_position=(4, 16), scale=1)
         self.append(self.eCO2_label)
 
@@ -27,8 +27,8 @@ class eCO2(displayio.Group):
 class AQIArea(displayio.Group):
     def __init__(self, x, y):
         super().__init__(x=x, y=y)
-        self.aqi_label = label.Label(PRAGATI_22, text="--", color=0xFFFFFF, anchor_point=(0.0, 0.0), 
-                                     anchored_position=(0, 6), scale=2)
+        self.aqi_label = label.Label(PRAGATI_54, text="--", color=0xFFFFFF, anchor_point=(0.0, 0.0), 
+                                     anchored_position=(0, 6), scale=1)
         self.append(self.aqi_label)
         
 
@@ -44,7 +44,7 @@ def aqi_cat(aqi):
     else: return 0
 
 pinfo = [
-    ("Good", "Air quality is pretty good!"),
+    ("Good AQI", "Air quality is pretty good!"),
     ("Moderate", "Air quality is okay; some people might be sensitive."),
     ("Unhealthy+", "Members of sensitive groups may experience health effects."),
     ("Very bad", "Wear a mask! Everyone is likely to experience effects."),
@@ -60,7 +60,7 @@ class DescriptionBox(displayio.Group):
         self.append(self.bg_grid)
 
         self.header_label = label.Label(
-            NINE_REG, 
+            NINE_BOLD, 
             text="----",
             color=0xEFBA0F, 
             line_spacing=0.8,
@@ -72,10 +72,10 @@ class DescriptionBox(displayio.Group):
         self.description_label = label.Label(
             SUBTEN, 
             text="Loading",
-            line_spacing=1.0,
+            line_spacing=1.05,
             color=0xFFFFFF, 
             anchor_point=(0.0, 0.0), 
-            anchored_position=(5, 25), 
+            anchored_position=(5, 30), 
             scale=1
         )
         
@@ -91,8 +91,11 @@ class DescriptionBox(displayio.Group):
         if cat != self.last_cat:
             gc.collect()
             
-            self.header_label.text = pinfo[cat][0]
+            self.header_label.text = wrap_text(pinfo[cat][0], 82, NINE_BOLD)
+            descy = wrap_pos(self.header_label.text, 25, 35)
+            
             self.description_label.text = wrap_text(pinfo[cat][1], 82, SUBTEN)
+            self.description_label.anchored_position = (5, descy)
             self.last_cat = cat
     
 
@@ -101,7 +104,7 @@ class AQIPage(Page):
         super().__init__(header_text="Air Quality")
         self.store = store
 
-        self.AQI_box = AQIArea(x=14, y=31)
+        self.AQI_box = AQIArea(x=14, y=28)
         self.group.append(self.AQI_box)
         
         self.eCO2_box = eCO2(x=14, y=84)
@@ -110,17 +113,19 @@ class AQIPage(Page):
         self.description_box = DescriptionBox(x=142, y=132)
         self.group.append(self.description_box)
         
-        self.graph_range = 10
+        self.graph_range = 15
         self.graph = DataGraph(xpos=14, ypos=132, width=122, height=90, group=self.group)
         
     def on_show(self):
-        self.store.set_active_metric("aqi")
+        self.store.set_active_metric("aqi", self.graph_range)
 
     def on_short_select(self):
         global DATA_RANGE
         current_index = DATA_RANGE.index(self.graph_range)
         next_index = (current_index + 1) % len(DATA_RANGE)
         self.graph_range = DATA_RANGE[next_index]
+        
+        self.store.resize_active_reading(self.graph_range)
 
     def on_long_select(self):
         pass
@@ -140,5 +145,5 @@ class AQIPage(Page):
         self.graph.draw_the_shit(
             readings.get_data_log(),
             self.store.get_setting("interval"),
-            self.graph_range
+            readings.max_samples
         )

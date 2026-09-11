@@ -5,7 +5,7 @@ from Page import Page
 from adafruit_display_shapes.line import Line
 from adafruit_display_text import label
 from adafruit_display_shapes.rect import Rect
-from fonts import NINE_REG
+from fonts import NINE
 
 
 class Selector(displayio.Group):
@@ -38,7 +38,7 @@ class NumberSelector(Selector):
         self.current_val = 0
         
         self.label = label.Label(
-            NINE_REG, 
+            NINE, 
             text=str(self.current_val), 
             color=0xFFFFFF, 
             anchor_point=(0.5, 0.5), 
@@ -76,7 +76,7 @@ class StringSelector(Selector):
         self.unitsList = unitsList
         
         self.label = label.Label(
-            NINE_REG, 
+            NINE, 
             text=str(self.unitsList[self.current_index]), 
             color=0xFFFFFF, 
             anchor_point=(0.5, 0.5), 
@@ -107,7 +107,7 @@ class IntervalGroup(displayio.Group):
         self.height = height
         self.store = store
 
-        self.append(label.Label(NINE_REG, text="interval:", color=0xFFFFFF, 
+        self.append(label.Label(NINE, text="interval:", color=0xFFFFFF, 
             anchor_point=(0.0, 0.0),  anchored_position=(0, 0)))
         
         self.tens = NumberSelector(x=180, y=0, width=14, height=20, parent=self)
@@ -116,7 +116,7 @@ class IntervalGroup(displayio.Group):
         self.append(self.tens)
         self.append(self.ones)
         
-        self.append(label.Label(NINE_REG, text="s", color=0xFFFFFF, 
+        self.append(label.Label(NINE, text="s", color=0xFFFFFF, 
             anchor_point=(0.0, 0.0),  
             anchored_position=(195 + 16, 1), scale=1))
         
@@ -141,9 +141,9 @@ class SeaLevelGroup(displayio.Group):
         self.height = height
         self.store = store
 
-        self.append(label.Label(NINE_REG, text="sea level:", color=0xFFFFFF, 
+        self.append(label.Label(NINE, text="sea level:", color=0xFFFFFF, 
             anchor_point=(0.0, 0.0),  anchored_position=(0, 0)))
-        self.append(label.Label(NINE_REG, text="10", color=0xFFFFFF, 
+        self.append(label.Label(NINE, text="10", color=0xFFFFFF, 
             anchor_point=(0.0, 0.0),  anchored_position=(130, 1)))
 
         self.hPa1 = NumberSelector(x=150, y=0, width=14, height=20, parent=self)
@@ -154,10 +154,10 @@ class SeaLevelGroup(displayio.Group):
         self.append(self.hPa2)
         self.append(self.hPa3)
 
-        self.append(label.Label(NINE_REG, text=".", color=0x00FFFF,
+        self.append(label.Label(NINE, text=".", color=0x00FFFF,
             anchor_point=(0.0, 0.0),  anchored_position=(165 + 12, 3), scale=1))
         
-        self.append(label.Label(NINE_REG, text="hPa", color=0xFFFFFF, 
+        self.append(label.Label(NINE, text="hPa", color=0xFFFFFF, 
             anchor_point=(0.0, 0.0),  
             anchored_position=(185 + 16, 1), scale=1))
         
@@ -194,7 +194,7 @@ class MeasurementUnitGroup(displayio.Group):
         self.height = height
         self.store = store
 
-        self.append(label.Label(NINE_REG, text="measurement:", color=0xFFFFFF, 
+        self.append(label.Label(NINE, text="measurement:", color=0xFFFFFF, 
             anchor_point=(0.0, 0.0),  anchored_position=(0, 0)))
 
         self.measurement_unit_selector = StringSelector(
@@ -219,7 +219,7 @@ class TemperatureUnitGroup(displayio.Group):
         self.height = height
         self.store = store
         
-        self.append(label.Label(NINE_REG, text="temperature:", color=0xFFFFFF, 
+        self.append(label.Label(NINE, text="temperature:", color=0xFFFFFF, 
             anchor_point=(0.0, 0.0),  anchored_position=(0, 0)))
 
         self.temp_selector = StringSelector(

@@ -1,4 +1,4 @@
-import displayio, digitalio 
+import displayio, digitalio
 from my_utilities import *
 
 # import board, busio
@@ -6,7 +6,6 @@ from Page import *
 
 
 from adafruit_display_shapes.line import Line
-from adafruit_display_shapes.rect import Rect
 from mockIC import MockBME680
 import time
 from DashboardPage import DashboardPage
@@ -24,6 +23,7 @@ display = None
 bme680 = None
 next_button = None
 select_button = None
+battery_pin = None
 
 
 COMPUTER = True
@@ -38,18 +38,23 @@ if COMPUTER:
 
     bme680 = MockBME680()
     bme680.sea_level_pressure = 1017.9
+        
+
 
 else:
     import board, busio
     from fourwire import FourWire
     import adafruit_bme680
     import adafruit_st7789
+    import analogio
 
 
     next_button = digitalio.DigitalInOut(board.GP14) #14
     next_button.switch_to_input(pull=digitalio.Pull.UP)
     select_button = digitalio.DigitalInOut(board.GP26) #26
     select_button.switch_to_input(pull=digitalio.Pull.UP)
+    battery_pin = analogio.AnalogIn(board.GP25)
+    battery_pin.switch_to_input(pull=digitalio.Pull.UP)
 
 
     i2c_sensor = busio.I2C(
@@ -84,6 +89,13 @@ else:
         rotation=180
     )
 
+
+def get_voltage():
+    global battery_pin
+    if not COMPUTER:
+        return battery_pin / 65535 * 3.7
+    else:
+        return 3.3
 
 
 data_store = DataStore(bme680)
@@ -149,8 +161,45 @@ def draw_battery_shell():
 
 draw_battery_shell() # just once
 
-def _update_battery(percentage=0.27):
-    signal.text = str(int(percentage * 100)) + "%"
+
+
+BATTERY_CURVE = [
+    (4.20, 100),
+    (4.10,  90),
+    (4.00,  80),
+    (3.90,  70),
+    (3.80,  60),
+    (3.70,  50),
+    (3.60,  40),
+    (3.50,  30),
+    (3.40,  20),
+    (3.20,  10),
+    (3.00,   0)
+]
+
+def voltage_to_percentage(voltage):
+
+    for i in range(len(BATTERY_CURVE) - 1):
+        v_high, p_high = BATTERY_CURVE[i]
+        v_low, p_low = BATTERY_CURVE[i + 1]
+        
+        if voltage >= v_low:
+            voltage_range = v_high - v_low
+            percentage_range = p_high - p_low
+            position_over = voltage - v_low
+            
+            return int(p_low + (position_over / voltage_range) * percentage_range)
+        
+
+            
+    return 0
+
+def _update_battery(voltage = 3.6):
+    
+    p_100 = voltage_to_percentage(voltage)
+    signal.text = f"{p_100}%"
+    
+    percentage = p_100 / 100
     
     if percentage > 0.6:
         pcolor = 2
@@ -175,14 +224,14 @@ master_group.append(content_group)
 
 
 pages = [
-    DashboardPage,
-    TemperaturePage,
-    PressurePage,
-    AQIPage,
-    SettingsPage,
+    DashboardPage(data_store),
+    TemperaturePage(data_store),
+    PressurePage(data_store),
+    AQIPage(data_store),
+    SettingsPage(data_store),
 ]
 
-page_index = 1
+page_index = 0
 current_page_instance = None
 
 
@@ -196,8 +245,7 @@ def show_page(idx):
     current_page_instance = None
     gc.collect()
     
-    page_class = pages[idx]
-    current_page_instance = page_class(data_store)
+    current_page_instance = pages[idx]
     
     current_page_instance.on_show()
     content_group.append(current_page_instance.group)
@@ -290,8 +338,8 @@ def handle_buttons_modes_computer():
     next_button_pressed = keys[pygame.K_n] or keys[pygame.K_RIGHT]
     select_button_pressed = keys[pygame.K_s] or keys[pygame.K_RETURN]
 
-    # --- SELECT BUTTON LOGIC (Matches hardware) ---
-    if select_button_pressed and not select_button_pressed_last: # JUST PRESSED
+
+    if select_button_pressed and not select_button_pressed_last:
         select_time_start_down = time.monotonic()
         long_press_fired = False
         
@@ -304,7 +352,7 @@ def handle_buttons_modes_computer():
           and time.monotonic() - select_time_start_down < long_thresh):
         SMODE = True
         
-    # --- NEXT BUTTON LOGIC ---
+
     if next_button_pressed and not next_button_pressed_last:
         NMODE = True
         
@@ -316,6 +364,7 @@ def handle_buttons_modes_computer():
 
 last_gc_time = 0
 GC_INTERVAL = 1.0
+upd = False
 
 while True:
 
@@ -335,25 +384,28 @@ while True:
         
         last_sensor_read = now
         current_page_instance.data_schedule_update()
-        page_needs_render = True
+        upd = True
 
     if NMODE:
         if current_page_instance.on_short_next() != False:
             pagers()
-        page_needs_render = True
+        upd = True
 
     elif SMODE:
         current_page_instance.on_short_select()
-        page_needs_render = True
+        upd = True
 
     elif L_SMODE:
         current_page_instance.on_long_select()
-        page_needs_render = True
+        upd = True
 
-    if page_needs_render:
+    if upd:
         current_page_instance.update_page()
-        _update_battery()
+        upd = False
+        
+        _update_battery(get_voltage())
+        gc.collect()
         display.refresh()
 
-    time.sleep(0.05)
+    time.sleep(0.01)
 

@@ -7,19 +7,18 @@ from array import array
 
 import math
 
-MAX_SAMPLES = 30
-DATA_RANGE = [10, 30]
+DATA_RANGE = [15, 30]
 
 def wrap_text(text, width, font):
     return "\n".join(wrap_text_to_pixels(
                 text, width, font=font
             ))
 
-MAX_SAMPLES = 20
-DATA_RANGE = [10, 20]
 
-def wrap_text(text, width, font):
-    return "\n".join(wrap_text_to_pixels(text, width, font=font))
+def wrap_pos(text, a, b):
+    if "\n" not in text: 
+        return a
+    return b
 
 class RollingLog:
     def __init__(self, cols, header: tuple, max_len=5):
@@ -49,11 +48,10 @@ class RollingLog:
 
 
 class Reading:
-    def __init__(self):
-        global MAX_SAMPLES
+    def __init__(self, max_samples):
         self.log = array("f")
         self.read_size = 5
-        self.max_samples = MAX_SAMPLES
+        self.max_samples = max_samples
         self.last_change = None
         
     def get_data_log(self):
@@ -96,14 +94,15 @@ class Reading:
     def getReading(self):
         return self.log[-1]
         # should have updated before so that it's not empty. you can't get reading if you never updated the log
-    
+        
+
 
 
 class DataStore:
     def __init__(self, sensor):
         self.sensor = sensor
-        self.active_metric = "temperature"
-        self.active_reading = Reading()
+        self.active_metric = None
+        self.active_reading = None
         
         self.latest_values = {
             "temperature": 0, "humidity": 0, "pressure": 0,
@@ -142,7 +141,6 @@ class DataStore:
             raise KeyError("That is not a valid key in settings")
         if key == "interval":
             value = float(value)
-            self.active_reading = Reading()
         self.settings[key] = value
         
     def get_setting(self, key):
@@ -220,20 +218,40 @@ class DataStore:
             if self.active_metric is not None:
                 active_val = self.getVal(self.active_metric)
                 self.active_reading.addReading(active_val)
+                
         except Exception as e:
             print("Sensor read error:", e)
        
-    def set_active_metric(self, metric_name):
+    def set_active_metric(self, metric_name, range=None):
         if metric_name != self.active_metric:
             self.active_metric = metric_name
-            self.active_reading.last_change = None
-            self.active_reading = Reading()
+            
+            if metric_name is not None:
+                self.active_reading = Reading(int(range / self.settings["interval"]))
+            else:
+                self.active_reading = None
     
     def checkAndUpdate(self) -> bool:
         return self.active_reading.checkMaybeUpdate()
 
     def getVariableData(self):
         return self.active_reading
+    
+    def resize_active_reading(self, new_range):
+        if self.active_reading is None:
+            return
+        
+        interval = self.settings["interval"]
+
+        
+        required_samples = int(new_range / interval)
+        
+        old_data = self.active_reading.get_data_log()
+        new_reading = Reading(required_samples)
+        for val in old_data:
+            new_reading.addReading(val)
+            
+        self.active_reading = new_reading
 
 
 
@@ -265,7 +283,7 @@ class SparkGraph:
         self.min_label.x, self.min_label.y = 4, height - 10
         self.ui_group.append(self.min_label)
         
-        self.leftLabel = label.Label(terminalio.FONT, text="t-60s", color=0xFFFFFF)
+        self.leftLabel = label.Label(terminalio.FONT, text="t-xs", color=0xFFFFFF)
         self.leftLabel.x, self.leftLabel.y = 0, height + 4
         self.ui_group.append(self.leftLabel)
         
@@ -297,10 +315,12 @@ class SparkGraph:
     def updateLeftLabel(self, inc):
         self.leftLabel.text = f"t-{inc}s"
 
-    def draw(self, plot_points, x_range_recent, rmin, rmax):
+    def draw(self, plot_points, x_range_recent, rmin, rmax, label):
+        
+        
         self.max_label.text = str(int(rmax))
         self.min_label.text = str(int(rmin))
-        self.updateLeftLabel(x_range_recent)
+        self.updateLeftLabel(label)
 
         self._draw_axis()
 
@@ -337,17 +357,10 @@ class SparkGraph:
 class DataGraph:
     def __init__(self, xpos, ypos, width, height, group):
         self.sparkgraph = SparkGraph(xpos, ypos, width, height, group)   
-        
-    def _getLastRange(self, data_log, interval, x_range_recent):
-        total_time = (len(data_log) - 1) * interval
-        if total_time <= x_range_recent:
-            return 0, True
-        samples_to_show = int(x_range_recent / interval) + 2
-        start_idx = max(0, len(data_log) - samples_to_show)
-        return start_idx, False
 
-    def _getPlotPointsAndMinMax(self, data_log, interval, x_range_recent):
-        start_idx, alignLeft = self._getLastRange(data_log, interval, x_range_recent)
+    def draw_the_shit(self, data_log, interval, max_samples):
+        start_idx = max(0, len(data_log) - max_samples)
+        
         plot_points = []
         new_x_time = 0
         rmax = float('-inf')
@@ -360,22 +373,14 @@ class DataGraph:
             if val < rmin: rmin = val
             if val > rmax: rmax = val
 
-        if not alignLeft:
-            offset = x_range_recent - (new_x_time - interval)
-  
-            plot_points = [(x + offset, y) for x, y in plot_points]
-
         rmin -= 0.2
         rmax += 0.2
-        return plot_points, (rmin, rmax)
-    
-    def draw_the_shit(self, data_log, interval, x_range_recent):
-        plot_points, (rmin, rmax) = self._getPlotPointsAndMinMax(data_log, interval, x_range_recent)
-        self.sparkgraph.draw(plot_points, x_range_recent, rmin, rmax)
-        
-        
-        
-        
+
+        # Calculate the exact time span based on the sample window slots (N - 1 intervals)
+        total_time_span = (max_samples - 1) * interval 
+        lbl = int((max_samples) * interval )
+
+        self.sparkgraph.draw(plot_points, int(total_time_span), rmin, rmax, lbl)
         
     
 class tempGradientObject:
